@@ -10,6 +10,9 @@ $(BUILD):
 %.pdf: %.gv
 	dot "$<" -Tpdf -o "$@"
 
+%.svg: %.gv
+	dot "$<" -Tsvg -o "$@"
+
 $(BUILD)/test_dual: test_dual.cpp macros.h dual.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
