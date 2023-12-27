@@ -1,13 +1,20 @@
-CXXFLAGS=-std=c++14 -Wall -Wextra -pedantic -O3 -Wshadow
-CXX=g++
+CXX = g++
+CXXFLAGS = -std=c++14 -Wall -Wextra -pedantic -O2 -Wshadow
+BUILD = build
 
-run: main
-	./$<
+all: $(BUILD)/test_dual $(BUILD)/test_reverse
 
-main: main.cpp
-	$(CXX) $(CXXFLAGS) $< -o $@
+$(BUILD):
+	mkdir "$@"
+
+$(BUILD)/test_dual: test_dual.cpp macros.h dual.h matrix.h $(BUILD)
+	$(CXX) $(CXXFLAGS) $< -o "$@"
+
+$(BUILD)/test_reverse: test_reverse.cpp macros.h reverse.h $(BUILD)
+	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 clean:
-	rm -f main
+	$(RM) $(BUILD)
 
-.PHONY: clean run
+.SUFFIXES:
+.PHONY: clean all

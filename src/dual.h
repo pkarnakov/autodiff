@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iosfwd>
 
 /*
   A dual number (u, ux) is as a class of functions `f(x)` such that
@@ -179,11 +180,17 @@ class Dual {
 };
 
 template <class T>
-Dual<T, T> Trace(T x) {
+T tanh(T x) {
+  using std::exp;
+  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
+}
+
+template <class T>
+Dual<T, T> SeedDual(T x) {
   return Dual<T, T>(x, 1);
 }
 
 template <class T, class D>
-Dual<T, Dual<T, D>> Trace(Dual<T, D> x) {
+Dual<T, Dual<T, D>> SeedDual(Dual<T, D> x) {
   return Dual<T, Dual<T, D>>(x, {x.grad(), D()});
 }

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iosfwd>
+#include <vector>
 
 #include "macros.h"
 

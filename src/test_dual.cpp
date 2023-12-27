@@ -1,16 +1,9 @@
 #include <cmath>
 #include <iostream>
-#include <vector>
 
 #include "dual.h"
 #include "matrix.h"
-#include "tape.h"
-
-template <class T>
-T tanh(T x) {
-  using std::exp;
-  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
-}
+#include "reverse.h"
 
 // Print and evaluate.
 #define PE(a) std::cout << #a << ": " << a << std::endl;
@@ -18,8 +11,8 @@ T tanh(T x) {
 
 void TestDual() {
   std::cout << '\n' << __func__ << std::endl;
-  auto a = Trace<double>(1);
-  auto b = Trace<double>(2);
+  auto a = SeedDual<double>(1);
+  auto b = SeedDual<double>(2);
   PE(a);
   PE(b);
   PE(a + 1);
@@ -42,17 +35,25 @@ void TestDual() {
   PE(pow(a, 4.5));
   PE(tanh(a));
 
-  auto f = [](auto x, auto y) {
+  auto f_tanh = [](auto x, auto y) {
     using std::tanh;
     return tanh(x - 0.25 * y);
   };
-  PE(f(a, b));
+  PE(f_tanh(a, b));
+
+  auto f_if = [](auto x, auto y) {
+    if (x > y) {
+      return x + y;
+    }
+    return x * y;
+  };
+  std::cout << f_if(a, b) << std::endl;
 }
 
 template <class F>
 auto Grad(F func) -> auto {
   return [func](auto x) {  //
-    return func(Trace(x)).grad();
+    return func(SeedDual(x)).grad();
   };
 }
 
@@ -70,23 +71,11 @@ void TestNested() {
   PE(fxxx(x));
 }
 
-void TestCond() {
-  std::cout << '\n' << __func__ << std::endl;
-  auto f = [](auto a, auto b) {
-    if (a > b) {
-      return a + b;
-    }
-    return a * b;
-  };
-  auto x = Trace(0);
-  auto a = x + 3;
-  auto b = x + 2;
-  std::cout << f(a, b) << std::endl;
-}
+void TestCond() {}
 
 void TestMatrix() {
   std::cout << '\n' << __func__ << std::endl;
-  auto x = Trace<double>(1);
+  auto x = SeedDual<double>(1);
   auto a = Matrix<double>::zeros(3, 3);
   auto b = Matrix<double>::eye(3, 3);
   PEN(a + x);
@@ -106,7 +95,6 @@ void TestDualMatrix() {
 int main() {
   TestDual();
   TestNested();
-  TestCond();
   TestMatrix();
   TestDualMatrix();
 }
