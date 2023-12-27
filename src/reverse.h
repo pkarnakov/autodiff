@@ -6,24 +6,6 @@
 #include <string>
 
 template <class T>
-std::string GetTypeName() {
-  return "unknown";
-}
-
-template <>
-std::string GetTypeName<double>() {
-  return "double";
-}
-template <>
-std::string GetTypeName<float>() {
-  return "float";
-}
-template <>
-std::string GetTypeName<int>() {
-  return "int";
-}
-
-template <class T>
 class Var {
  public:
   Var(T value, const std::string& name = "")
@@ -44,17 +26,6 @@ class Var {
   std::unique_ptr<T> value_;
   std::string name_;
 };
-
-template <class T>
-std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
-  out << "Var(" << var.value();
-  out << ", " << GetTypeName<T>();
-  if (!var.name().empty()) {
-    out << ", \"" << var.name() << "\"";
-  }
-  out << ")";
-  return out;
-}
 
 template <class T>
 class Node {
@@ -110,18 +81,6 @@ struct Tracer {
 };
 
 template <class T>
-std::ostream& operator<<(std::ostream& out, const Tracer<T>& tracer) {
-  out << "Tracer(" << tracer.value();
-  out << ", " << tracer.grad();
-  out << ", " << GetTypeName<T>();
-  if (!tracer.node()->name().empty()) {
-    out << ", \"" << tracer.node()->name() << "\"";
-  }
-  out << ")";
-  return out;
-}
-
-template <class T>
 class NodeUnary : public Node<T> {
  public:
   NodeUnary(std::shared_ptr<Node<T>> x, std::function<T(T)> fvalue,
@@ -133,6 +92,9 @@ class NodeUnary : public Node<T> {
   }
   T grad() const override {
     return fgrad_(x_->value(), x_->grad());
+  }
+  const std::shared_ptr<Node<T>>& x() const {
+    return x_;
   }
 
   std::shared_ptr<Node<T>> x_;
@@ -153,6 +115,12 @@ class NodeBinary : public Node<T> {
   }
   T grad() const override {
     return fgrad_(x_->value(), y_->value(), x_->grad(), y_->grad());
+  }
+  const std::shared_ptr<Node<T>>& x() const {
+    return x_;
+  }
+  const std::shared_ptr<Node<T>>& y() const {
+    return y_;
   }
 
   std::shared_ptr<Node<T>> x_;
@@ -299,4 +267,159 @@ Tracer<T> operator/(Tracer<T> tr_x, Tracer<T> tr_y) {
   return {std::make_shared<NodeBinary<T>>(
       tr_x.node(), tr_y.node(), [](T x, T y) { return x / y; },
       [](T x, T y, T dx, T dy) { return dx / y - (x * dy) / (y * y); }, "/")};
+}
+
+////////////////////////////////////////
+// Output.
+////////////////////////////////////////
+
+template <class T>
+std::string GetTypeName() {
+  return "unknown";
+}
+
+template <>
+std::string GetTypeName<double>() {
+  return "double";
+}
+template <>
+std::string GetTypeName<float>() {
+  return "float";
+}
+template <>
+std::string GetTypeName<int>() {
+  return "int";
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
+  out << "Var(" << var.value();
+  out << ", " << GetTypeName<T>();
+  if (!var.name().empty()) {
+    out << ", \"" << var.name() << "\"";
+  }
+  out << ")";
+  return out;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const Node<T>& node) {
+  out << "Node(" << node.name() << ")";
+  return out;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const NodeVar<T>& node) {
+  out << "NodeVar(" << node.var() << ")";
+  return out;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const NodeUnary<T>& node) {
+  out << "NodeUnary(" << node.name() << "[" << node.x()->name() << "])";
+  return out;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const NodeBinary<T>& node) {
+  out << "NodeBinary(" << node.name() << "[" << node.x()->name() << ","
+      << node.y()->name() << "])";
+  return out;
+}
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const Tracer<T>& tracer) {
+  out << "Tracer(" << tracer.value();
+  out << ", " << tracer.grad();
+  out << ", " << GetTypeName<T>();
+  if (!tracer.node()->name().empty()) {
+    out << ", \"" << tracer.node()->name() << "\"";
+  }
+  out << ")";
+  return out;
+}
+
+template <class T>
+void Print(std::ostream& out, const Tracer<T> tracer) {
+  Print(out, tracer.node().get());
+}
+
+template <class T>
+void Print(std::ostream& out, const Node<T>* node, int depth = 0) {
+  out << std::string(depth * 4, '.');
+  {
+    if (auto ptr = dynamic_cast<const NodeVar<T>*>(node)) {
+      out << *ptr << '\n';
+    }
+  }
+  {
+    if (auto ptr = dynamic_cast<const NodeUnary<T>*>(node)) {
+      out << *ptr << '\n';
+      Print(out, ptr->x().get(), depth + 1);
+    }
+  }
+  {
+    if (auto ptr = dynamic_cast<const NodeBinary<T>*>(node)) {
+      out << *ptr << '\n';
+      Print(out, ptr->x().get(), depth + 1);
+      Print(out, ptr->y().get(), depth + 1);
+    }
+  }
+}
+
+template <class T>
+void PrintDot(std::ostream& out, const Node<T>* terminal) {
+  std::map<const Node<T>*, std::string> names;
+  std::function<void(const Node<T>*, int)> print =
+      [&print, &out, &names](const Node<T>* node, int depth) {
+        const std::string pad(depth * 4, ' ');
+        if (!names.count(node)) {
+          const size_t i = names.size();
+          names[node] = "n" + std::to_string(i);
+          out << pad;
+          out << names[node] << " [label=\"" << node->name() << "\"]\n";
+        }
+
+        {
+          if (auto ptr = dynamic_cast<const NodeVar<T>*>(node)) {
+          }
+        }
+        {
+          if (auto ptr = dynamic_cast<const NodeUnary<T>*>(node)) {
+            print(ptr->x().get(), depth + 1);
+            out << pad;
+            out << names[ptr->x().get()] << " -> " << names[node] << '\n';
+          }
+        }
+        {
+          if (auto ptr = dynamic_cast<const NodeBinary<T>*>(node)) {
+            print(ptr->x().get(), depth + 1);
+            print(ptr->y().get(), depth + 1);
+            out << pad;
+            out << names[ptr->x().get()] << " -> " << names[node] << '\n';
+            out << pad;
+            out << names[ptr->y().get()] << " -> " << names[node] << '\n';
+          }
+        }
+      };
+  out << "digraph {\n";
+  out << "    node [shape=circle, margin=0]\n";
+  print(terminal, 1);
+  out << "}\n";
+}
+
+template <class T>
+void PrintDot(std::ostream& out, const Tracer<T>& tracer) {
+  PrintDot(out, tracer.node().get());
+}
+
+template <class T>
+void PrintDot(std::string path, const Node<T>* terminal) {
+  std::ofstream fout(path);
+  PrintDot(fout, terminal);
+}
+
+template <class T>
+void PrintDot(std::string path, const Tracer<T>& tracer) {
+  PrintDot(path, tracer.node().get());
 }

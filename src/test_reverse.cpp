@@ -1,5 +1,7 @@
 #include <cmath>
+#include <fstream>
 #include <iostream>
+#include <map>
 
 #include "reverse.h"
 
@@ -15,10 +17,11 @@ void TestReverse() {
   Var<T> var_y(pi / 3, "y");
   PE(var_x);
   PE(var_y);
-  auto x = Tracer<T>(var_x);
-  auto y = Tracer<T>(var_y);
-  PE(x);
-  PE((sin(x) * cos(y) + cos(x) * sin(y)));
+  Tracer<T> x(var_x);
+  Tracer<T> y(var_y);
+  auto e = sin(x) * cos(y) + cos(x) * sin(y);
+  PE(e);
+  PrintDot("graph.gv", e);
 }
 
 int main() {
