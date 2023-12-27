@@ -14,7 +14,7 @@ $(BUILD)/test_reverse: test_reverse.cpp macros.h reverse.h $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 clean:
-	$(RM) $(BUILD)
+	$(RM) -r $(BUILD)
 
 .SUFFIXES:
 .PHONY: clean all

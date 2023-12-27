@@ -9,14 +9,16 @@
 
 void TestReverse() {
   using T = double;
+  const auto pi = M_PI;
   std::cout << '\n' << __func__ << std::endl;
-  Var<T> var_x(1, "x");
-  Var<T> var_y(2, "y");
-  std::cout << var_x << ' ' << var_y << std::endl;
+  Var<T> var_x(pi / 6, "x");
+  Var<T> var_y(pi / 3, "y");
+  PE(var_x);
+  PE(var_y);
   auto x = Tracer<T>(var_x);
   auto y = Tracer<T>(var_y);
-  auto e = x;
-  std::cout << e.value() << ' ' << e.grad() << std::endl;
+  PE(x);
+  PE((sin(x) * cos(y) + cos(x) * sin(y)));
 }
 
 int main() {
