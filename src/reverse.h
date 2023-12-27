@@ -9,11 +9,20 @@
 template <class T>
 class Var {
  public:
-  Var(T value, const std::string& name = "")
-      : value_(std::make_unique<T>(value)), name_(name) {}
+  Var(const T& value, const std::string& name = "")
+      : value_(std::make_unique<T>(value)),
+        grad_(std::make_unique<T>(1)),
+        name_(name) {}
+  Var(const T& value, const T& grad, const std::string& name = "")
+      : value_(std::make_unique<T>(value)),
+        grad_(std::make_unique<T>(grad)),
+        name_(name) {}
 
   const T& value() const {
     return *value_;
+  }
+  const T& grad() const {
+    return *grad_;
   }
   const std::string& name() const {
     return name_;
@@ -25,6 +34,7 @@ class Var {
 
  private:
   std::unique_ptr<T> value_;
+  std::unique_ptr<T> grad_;
   std::string name_;
 };
 
@@ -53,7 +63,7 @@ class NodeVar : public Node<T> {
     return var_.value();
   }
   T grad() const override {
-    return T(1);
+    return var_.grad();
   }
   const Var<T>& var() const {
     return var_;
