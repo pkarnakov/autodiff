@@ -9,6 +9,22 @@
 #define PE(a) std::cout << #a << ": " << a << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << a << std::endl;
 
+template <class A>
+static A abs(A x) {
+  return x >= A{} ? x : -x;
+}
+
+// using sin(3 * x) = 3 sin(x) - 4 * sin(x)^3 and sin(x) \approx x
+template <class A>
+static A approx_sin(A x) {
+  if (abs(x) < A(1e-5))
+    return x;
+  else {
+    auto z = approx_sin(-x / 3);
+    return 4 * z * z * z - 3 * z;
+  }
+}
+
 void TestDual() {
   std::cout << '\n' << __func__ << std::endl;
   auto a = SeedDual<double>(1);
@@ -48,6 +64,8 @@ void TestDual() {
     return x * y;
   };
   PE(f_if(a, b));
+  PE(abs(b));
+  PE(approx_sin(SeedDual(1.23)));
 }
 
 template <class F>
