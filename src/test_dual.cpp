@@ -47,7 +47,7 @@ void TestDual() {
     }
     return x * y;
   };
-  std::cout << f_if(a, b) << std::endl;
+  PE(f_if(a, b));
 }
 
 template <class F>
@@ -70,8 +70,6 @@ void TestNested() {
   PE(fxx(x));
   PE(fxxx(x));
 }
-
-void TestCond() {}
 
 void TestMatrix() {
   std::cout << '\n' << __func__ << std::endl;
