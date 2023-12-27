@@ -1,0 +1,70 @@
+body {
+  margin: auto;
+  padding-right: 1em;
+  padding-left: 1em;
+  max-width: 44em;
+  font-family: sans-serif;
+  font-size: 1em;
+  color: #222;
+}
+table {
+  border-spacing: 0;
+  border: 1px solid gray;
+}
+table th {
+  padding: 2px 5px;
+  background-color: white;
+  border: 1px solid gray;
+}
+table td {
+  padding: 2px 5px;
+  border: 1px solid gray;
+}
+
+
+code,
+kbd,
+pre {
+  font-family: monospace;
+  font-size: 1em;
+}
+
+code {
+  background-color: rgba(0,0,0,.05);
+  border-radius: 3px;
+  margin: 0;
+}
+
+pre {
+  word-wrap: normal;
+}
+
+pre > code {
+  background: transparent;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  word-break: normal;
+}
+
+.highlight {
+  margin-bottom: 5px;
+}
+
+.highlight pre {
+  margin-bottom: 0;
+  word-break: normal;
+}
+
+.highlight pre,
+pre {
+  background-color: #f6f6f6;
+  border-radius: 3px;
+  line-height: 130%;
+  overflow: auto;
+  padding: 5px;
+}
+
+.katex{ font-size:1em; }
+.katex-display { overflow: auto hidden; }
