@@ -6,9 +6,6 @@
 
 #include "macros.h"
 
-template <class U, class V>
-using Mix = decltype(U() + V());
-
 template <class T>
 class Matrix {
  public:
@@ -18,6 +15,14 @@ class Matrix {
       : nrow_(nrow), ncol_(ncol), data_(nrow * ncol) {}
   Matrix(size_t nrow, size_t ncol, T a)
       : nrow_(nrow), ncol_(ncol), data_(nrow * ncol, a) {}
+  template <class U>
+  Matrix(const Matrix<U>& other)
+      : nrow_(other.nrow_),
+        ncol_(other.ncol_),
+        data_(other.data_.begin(), other.data_.end()) {}
+
+  template <class U>
+  friend class Matrix;
 
   // Element access.
   T& operator()(size_t i, size_t j) {
@@ -31,6 +36,12 @@ class Matrix {
   }
   const T& operator[](size_t i) const {
     return data_[i];
+  }
+  size_t nrow() const {
+    return nrow_;
+  }
+  size_t ncol() const {
+    return ncol_;
   }
 
   // Assignment.
@@ -65,47 +76,6 @@ class Matrix {
   }
 
   // Member functions.
-  template <class U>
-  Matrix<Mix<U, T>> operator+(const Matrix<U>& other) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
-    for (size_t i = 0; i < data_.size(); ++i) {
-      res[i] = data_[i] + other[i];
-    }
-    return res;
-  }
-  template <class U>
-  Matrix<Mix<U, T>> operator-(const Matrix<U>& other) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
-    for (size_t i = 0; i < data_.size(); ++i) {
-      res[i] = data_[i] - other[i];
-    }
-    return res;
-  }
-  template <class U>
-  Matrix<Mix<U, T>> operator*(const Matrix<U>& other) const {
-    using R = Mix<U, T>;
-    fassert_equal(ncol_, other.nrow_);
-    const auto other_t = other.transpose();
-    Matrix<R> res(nrow_, other.ncol_, R(0));
-    for (size_t i = 0; i < res.nrow_; ++i) {
-      for (size_t j = 0; j < res.ncol_; ++j) {
-        R s(0);
-        for (size_t k = 0; k < ncol_; ++k) {
-          s += (*this)(i, k) * other_t(j, k);
-        }
-        res(i, j) = s;
-      }
-    }
-    return res;
-  }
-  template <class U>
-  Matrix<Mix<U, T>> operator+(const U& a) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
-    for (size_t i = 0; i < data_.size(); ++i) {
-      res[i] = data_[i] + a;
-    }
-    return res;
-  }
   Matrix operator-() const {
     Matrix res(nrow_, ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
@@ -113,27 +83,67 @@ class Matrix {
     }
     return res;
   }
-  template <class U>
-  Matrix<Mix<U, T>> operator-(const U& a) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
+  Matrix operator+(const T& a) const {
+    Matrix res(nrow_, ncol_);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      res[i] = data_[i] + a;
+    }
+    return res;
+  }
+  Matrix operator-(const T& a) const {
+    Matrix res(nrow_, ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
       res[i] = data_[i] - a;
     }
     return res;
   }
-  template <class U>
-  Matrix<Mix<U, T>> operator*(const U& a) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
+  Matrix operator*(const T& a) const {
+    Matrix res(nrow_, ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
       res[i] = data_[i] * a;
     }
     return res;
   }
-  template <class U>
-  Matrix<Mix<U, T>> operator/(const U& a) const {
-    Matrix<Mix<U, T>> res(nrow_, ncol_);
+  Matrix operator/(const T& a) const {
+    Matrix res(nrow_, ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
       res[i] = data_[i] / a;
+    }
+    return res;
+  }
+  Matrix operator+(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    Matrix res(nrow_, ncol_);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      res[i] = data_[i] + other[i];
+    }
+    return res;
+  }
+  Matrix operator-(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    Matrix res(nrow_, ncol_);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      res[i] = data_[i] - other[i];
+    }
+    return res;
+  }
+  Matrix operator*(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    Matrix res(nrow_, ncol_);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      res[i] = data_[i] * other[i];
+    }
+    return res;
+  }
+  Matrix operator/(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    Matrix res(nrow_, ncol_);
+    for (size_t i = 0; i < data_.size(); ++i) {
+      res[i] = data_[i] / other[i];
     }
     return res;
   }
@@ -157,10 +167,53 @@ class Matrix {
     return sum() / (nrow_ * ncol_);
   }
   template <class F>
-  Matrix apply(F func) const {
-    Matrix res(ncol_, nrow_);
+  auto apply(F func) const -> Matrix<decltype(func(T()))> const {
+    Matrix<decltype(func(T()))> res(ncol_, nrow_);
     for (size_t i = 0; i < data_.size(); ++i) {
       res[i] = func((*this)[i]);
+    }
+    return res;
+  }
+  Matrix matmul(const Matrix& other) const {
+    fassert_equal(ncol_, other.nrow_);
+    const auto other_t = other.transpose();
+    Matrix res(nrow_, other.ncol_);
+    for (size_t i = 0; i < res.nrow_; ++i) {
+      for (size_t j = 0; j < res.ncol_; ++j) {
+        T s{};
+        for (size_t k = 0; k < ncol_; ++k) {
+          s += (*this)(i, k) * other_t(j, k);
+        }
+        res(i, j) = s;
+      }
+    }
+    return res;
+  }
+  Matrix hstack(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    Matrix res(nrow_, ncol_ + other.ncol_);
+    for (size_t i = 0; i < nrow_; ++i) {
+      for (size_t j = 0; j < ncol_; ++j) {
+        res(i, j) = (*this)(i, j);
+      }
+      for (size_t j = 0; j < other.ncol_; ++j) {
+        res(i, ncol_ + j) = other(i, j);
+      }
+    }
+    return res;
+  }
+  Matrix vstack(const Matrix& other) const {
+    fassert_equal(ncol_, other.ncol_);
+    Matrix res(nrow_ + other.nrow_, ncol_);
+    for (size_t i = 0; i < nrow_; ++i) {
+      for (size_t j = 0; j < ncol_; ++j) {
+        res(i, j) = (*this)(i, j);
+      }
+    }
+    for (size_t i = 0; i < other.nrow_; ++i) {
+      for (size_t j = 0; j < ncol_; ++j) {
+        res(nrow_ + i, j) = other(i, j);
+      }
     }
     return res;
   }
@@ -182,33 +235,45 @@ class Matrix {
     using std::log;
     return matr.apply([](T x) { return log(x); });
   }
-  /* FIXME: Preceeds matrix-matrix product if T=Matrix.
-  template <class U>
-  friend Matrix<Mix<U, T>> operator*(const U& a, const Matrix& matr) {
-    Matrix<Mix<U, T>> res(matr.nrow_, matr.ncol_);
+  friend Matrix operator+(const T& a, const Matrix& matr) {
+    Matrix res(matr.nrow_, matr.ncol_);
+    for (size_t i = 0; i < matr.data_.size(); ++i) {
+      res[i] = a + matr[i];
+    }
+    return res;
+  }
+  friend Matrix operator-(const T& a, const Matrix& matr) {
+    Matrix res(matr.nrow_, matr.ncol_);
+    for (size_t i = 0; i < matr.data_.size(); ++i) {
+      res[i] = a - matr[i];
+    }
+    return res;
+  }
+  friend Matrix operator*(const T& a, const Matrix& matr) {
+    Matrix res(matr.nrow_, matr.ncol_);
     for (size_t i = 0; i < matr.data_.size(); ++i) {
       res[i] = a * matr[i];
     }
     return res;
   }
-  */
-  friend std::ostream& operator<<(std::ostream& out, const Matrix& matr) {
-    for (size_t i = 0; i < matr.nrow_; ++i) {
-      for (size_t j = 0; j < matr.ncol_; ++j) {
-        out << matr.data_[i * matr.ncol_ + j] << " ";
-      }
-      out << "\n";
+  friend Matrix operator/(const T& a, const Matrix& matr) {
+    Matrix res(matr.nrow_, matr.ncol_);
+    for (size_t i = 0; i < matr.data_.size(); ++i) {
+      res[i] = a / matr[i];
     }
-    return out;
+    return res;
   }
   static Matrix zeros(size_t nrow, size_t ncol) {
     return Matrix(nrow, ncol, T(0));
+  }
+  static Matrix ones(size_t nrow, size_t ncol) {
+    return Matrix(nrow, ncol, T(1));
   }
   static Matrix eye(size_t nrow, size_t ncol) {
     Matrix<T> res(nrow, ncol);
     for (size_t i = 0; i < nrow; ++i) {
       for (size_t j = 0; j < ncol; ++j) {
-        res(i, j) = (i == j ? 1 : 0);
+        res(i, j) = (i == j ? T(1) : T(0));
       }
     }
     return res;
@@ -219,3 +284,23 @@ class Matrix {
   size_t ncol_;
   std::vector<T> data_;
 };
+
+////////////////////////////////////////
+// Output.
+////////////////////////////////////////
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const Matrix<T>& matr) {
+  for (size_t i = 0; i < matr.nrow(); ++i) {
+    for (size_t j = 0; j < matr.ncol(); ++j) {
+      out << matr(i, j);
+      if (j + 1 < matr.ncol()) {
+        out << ' ';
+      }
+    }
+    if (i + 1 < matr.nrow()) {
+      out << "\n";
+    }
+  }
+  return out;
+}

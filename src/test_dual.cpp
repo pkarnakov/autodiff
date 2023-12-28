@@ -6,7 +6,7 @@
 
 // Print and evaluate.
 #define PE(a) std::cout << #a << ": " << a << std::endl;
-#define PEN(a) std::cout << #a << ":\n" << a << std::endl;
+#define PEN(a) std::cout << #a << ":\n" << a << '\n' << std::endl;
 
 template <class T>
 static T abs(T x) {
@@ -124,30 +124,22 @@ static void TestNested() {
 }
 
 template <class T = double>
-static void TestMatrix() {
-  std::cout << '\n' << __func__ << std::endl;
-  auto x = SeedDual<T>(1);
-  auto zeros = Matrix<T>::zeros(3, 3);
-  auto eye = Matrix<T>::eye(3, 3);
-  PEN(zeros + x);
-  PEN(eye * x + 1);
-  PEN((eye * x).sum().grad());
-}
-
-template <class T = double>
 static void TestDualMatrix() {
   std::cout << '\n' << __func__ << std::endl;
-  auto eye = Matrix<T>::eye(3, 3);
-  auto zeros = Matrix<T>::zeros(3, 3);
-  auto dual = Dual<T, Matrix<T>>(eye, eye);
-  PEN(dual);
-  PEN(dual + eye);
+  using D = Dual<T, T>;
+  auto x = SeedDual<T>(1);
+  auto zeros = Matrix<D>::zeros(3, 3);
+  auto ones = Matrix<D>::ones(3, 3);
+  auto eye = Matrix<D>::eye(3, 3);
+  PE((ones + x).sum().grad());
+  PE((ones.sum() + x).grad());
+  PE(((ones * x) * (ones * x))(0, 0).grad());
+  PE(((ones * x).matmul(ones * x))(0, 0).grad());
 }
 
 int main() {
   TestDual();
   TestNested();
-  TestMatrix();
-  TestDualMatrix();
   TestConfusion();
+  TestDualMatrix();
 }

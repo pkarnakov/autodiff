@@ -18,18 +18,15 @@ class Dual {
  public:
   // Constructor.
   Dual() : u_(D()), ux_(D()) {}
-  explicit Dual(D u) : u_(u), ux_(D()) {}
-  Dual(D u, D ux) : u_(u), ux_(ux) {}
+  explicit Dual(const D& u) : u_(u), ux_(D()) {}
+  Dual(const D& u, const D& ux) : u_(u), ux_(ux) {}
   Dual(const Dual&) = default;
 
   // Element access.
-  explicit operator T() const {
+  const D& value() const {
     return u_;
   }
-  D value() const {
-    return u_;
-  }
-  D grad() const {
+  const D& grad() const {
     return ux_;
   }
 
@@ -55,16 +52,12 @@ class Dual {
 
   // Assignment.
   Dual& operator=(const Dual&) = default;
-  Dual& operator=(const T& a) {
-    *this = Dual(a);
-    return *this;
-  }
   Dual& operator+=(const Dual& other) {
     u_ += other.u_;
     ux_ += other.ux_;
     return *this;
   }
-  Dual& operator+=(T a) {
+  Dual& operator+=(const D& a) {
     u_ += a;
     return *this;
   }
@@ -73,7 +66,7 @@ class Dual {
     ux_ -= other.ux_;
     return *this;
   }
-  Dual& operator-=(T a) {
+  Dual& operator-=(const D& a) {
     u_ -= a;
     return *this;
   }
@@ -81,7 +74,7 @@ class Dual {
     *this = *this * other;
     return *this;
   }
-  Dual& operator*=(T a) {
+  Dual& operator*=(const D& a) {
     u_ *= a;
     ux_ *= a;
     return *this;
@@ -90,7 +83,7 @@ class Dual {
     *this = *this / other;
     return *this;
   }
-  Dual& operator/=(T a) {
+  Dual& operator/=(const D& a) {
     u_ /= a;
     ux_ /= a;
     return *this;
@@ -100,19 +93,23 @@ class Dual {
   Dual operator+(const Dual& other) const {
     return Dual{u_ + other.u_, ux_ + other.ux_};
   }
-  Dual operator+(D a) const {
+  Dual operator+(const D& a) const {
     return Dual{u_ + a, ux_};
   }
   Dual operator-(const Dual& other) const {
     return Dual{u_ - other.u_, ux_ - other.ux_};
   }
-  Dual operator-(D a) const {
+  Dual operator-(const D& a) const {
     return Dual{u_ - a, ux_};
   }
   Dual operator-() const {
     return Dual{-u_, -ux_};
   }
-  Dual operator*(T a) const {
+  Dual operator*(const D& a) const {
+    return Dual{u_ * a, ux_ * a};
+  }
+  template <class U>
+  Dual operator*(const U& a) const {
     return Dual{u_ * a, ux_ * a};
   }
   Dual operator*(const Dual& other) const {
@@ -124,7 +121,7 @@ class Dual {
         ux_ / other.u_ - (u_ * other.ux_) / (other.u_ * other.u_),
     };
   }
-  Dual operator/(T a) const {
+  Dual operator/(const D& a) const {
     return Dual{u_ / a, ux_ / a};
   }
 
@@ -135,7 +132,7 @@ class Dual {
   friend Dual operator-(const D& a, const Dual& dual) {
     return Dual{a - dual.u_, -dual.ux_};
   }
-  friend Dual operator*(T a, const Dual& dual) {
+  friend Dual operator*(const D& a, const Dual& dual) {
     return Dual{a * dual.u_, a * dual.ux_};
   }
   // XXX: Replacing this with with
@@ -143,10 +140,10 @@ class Dual {
   // causes redefinition error.
   // TODO: Revise to avoid ambiguity with member operator*(Dual, Dual).
   template <class U>
-  friend Dual operator*(const Dual<T, U>& a, const Dual& dual) {
+  friend Dual operator*(const U& a, const Dual& dual) {
     return Dual{a * dual.u_, a * dual.ux_};
   }
-  friend Dual operator/(T a, const Dual& dual) {
+  friend Dual operator/(const D& a, const Dual& dual) {
     return Dual{a / dual.u_, -(a * dual.ux_) / (dual.u_ * dual.u_)};
   }
   friend Dual sin(const Dual& dual) {
@@ -167,14 +164,22 @@ class Dual {
     using std::log;
     return Dual{log(dual.u_), dual.ux_ / dual.u_};
   }
-  friend Dual pow(const Dual& base, T exp) {
+  friend Dual pow(const Dual& base, const D& exp) {
     using std::pow;
     return Dual{
         pow(base.u_, exp),
         exp * pow(base.u_, exp - 1) * base.ux_,
     };
   }
-  friend T grad(const Dual& dual) {
+  template <class U>
+  friend Dual pow(const Dual& base, const U& exp) {
+    using std::pow;
+    return Dual{
+        pow(base.u_, exp),
+        exp * pow(base.u_, exp - 1) * base.ux_,
+    };
+  }
+  friend const D& grad(const Dual& dual) {
     return dual.grad();
   }
   friend std::ostream& operator<<(std::ostream& out, const Dual& dual) {
