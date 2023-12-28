@@ -13,20 +13,20 @@
   This defines certain operations on dual numbers.
 */
 
-template <class T, class D = T>
+template <class T>
 class Dual {
  public:
   // Constructor.
-  Dual() : u_(D()), ux_(D()) {}
-  explicit Dual(const D& u) : u_(u), ux_(D()) {}
-  Dual(const D& u, const D& ux) : u_(u), ux_(ux) {}
+  Dual() : u_(T()), ux_(T()) {}
+  explicit Dual(const T& u) : u_(u), ux_(T()) {}
+  Dual(const T& u, const T& ux) : u_(u), ux_(ux) {}
   Dual(const Dual&) = default;
 
   // Element access.
-  const D& value() const {
+  const T& value() const {
     return u_;
   }
-  const D& grad() const {
+  const T& grad() const {
     return ux_;
   }
 
@@ -57,7 +57,7 @@ class Dual {
     ux_ += other.ux_;
     return *this;
   }
-  Dual& operator+=(const D& a) {
+  Dual& operator+=(const T& a) {
     u_ += a;
     return *this;
   }
@@ -66,7 +66,7 @@ class Dual {
     ux_ -= other.ux_;
     return *this;
   }
-  Dual& operator-=(const D& a) {
+  Dual& operator-=(const T& a) {
     u_ -= a;
     return *this;
   }
@@ -74,7 +74,7 @@ class Dual {
     *this = *this * other;
     return *this;
   }
-  Dual& operator*=(const D& a) {
+  Dual& operator*=(const T& a) {
     u_ *= a;
     ux_ *= a;
     return *this;
@@ -83,7 +83,7 @@ class Dual {
     *this = *this / other;
     return *this;
   }
-  Dual& operator/=(const D& a) {
+  Dual& operator/=(const T& a) {
     u_ /= a;
     ux_ /= a;
     return *this;
@@ -93,19 +93,19 @@ class Dual {
   Dual operator+(const Dual& other) const {
     return Dual{u_ + other.u_, ux_ + other.ux_};
   }
-  Dual operator+(const D& a) const {
+  Dual operator+(const T& a) const {
     return Dual{u_ + a, ux_};
   }
   Dual operator-(const Dual& other) const {
     return Dual{u_ - other.u_, ux_ - other.ux_};
   }
-  Dual operator-(const D& a) const {
+  Dual operator-(const T& a) const {
     return Dual{u_ - a, ux_};
   }
   Dual operator-() const {
     return Dual{-u_, -ux_};
   }
-  Dual operator*(const D& a) const {
+  Dual operator*(const T& a) const {
     return Dual{u_ * a, ux_ * a};
   }
   template <class U>
@@ -121,29 +121,29 @@ class Dual {
         ux_ / other.u_ - (u_ * other.ux_) / (other.u_ * other.u_),
     };
   }
-  Dual operator/(const D& a) const {
+  Dual operator/(const T& a) const {
     return Dual{u_ / a, ux_ / a};
   }
 
   // Friend functions.
-  friend Dual operator+(const D& a, const Dual& dual) {
+  friend Dual operator+(const T& a, const Dual& dual) {
     return Dual{a + dual.u_, dual.ux_};
   }
-  friend Dual operator-(const D& a, const Dual& dual) {
+  friend Dual operator-(const T& a, const Dual& dual) {
     return Dual{a - dual.u_, -dual.ux_};
   }
-  friend Dual operator*(const D& a, const Dual& dual) {
+  friend Dual operator*(const T& a, const Dual& dual) {
     return Dual{a * dual.u_, a * dual.ux_};
   }
   // XXX: Replacing this with with
-  //   friend Dual operator*(const D& a, const Dual& dual) {
+  //   friend Dual operator*(const T& a, const Dual& dual) {
   // causes redefinition error.
-  // TODO: Revise to avoid ambiguity with member operator*(Dual, Dual).
+  // TODO: Revise to avoid ambiguity with member operator*(Dual).
   template <class U>
   friend Dual operator*(const U& a, const Dual& dual) {
     return Dual{a * dual.u_, a * dual.ux_};
   }
-  friend Dual operator/(const D& a, const Dual& dual) {
+  friend Dual operator/(const T& a, const Dual& dual) {
     return Dual{a / dual.u_, -(a * dual.ux_) / (dual.u_ * dual.u_)};
   }
   friend Dual sin(const Dual& dual) {
@@ -164,7 +164,7 @@ class Dual {
     using std::log;
     return Dual{log(dual.u_), dual.ux_ / dual.u_};
   }
-  friend Dual pow(const Dual& base, const D& exp) {
+  friend Dual pow(const Dual& base, const T& exp) {
     using std::pow;
     return Dual{
         pow(base.u_, exp),
@@ -179,17 +179,13 @@ class Dual {
         exp * pow(base.u_, exp - 1) * base.ux_,
     };
   }
-  friend const D& grad(const Dual& dual) {
+  friend const T& grad(const Dual& dual) {
     return dual.grad();
-  }
-  friend std::ostream& operator<<(std::ostream& out, const Dual& dual) {
-    out << "[" << dual.u_ << ", " << dual.ux_ << "]";
-    return out;
   }
 
  private:
-  D u_;
-  D ux_;
+  T u_;
+  T ux_;
 };
 
 template <class T>
@@ -199,11 +195,21 @@ T tanh(T x) {
 }
 
 template <class T>
-Dual<T, T> SeedDual(T x) {
-  return Dual<T, T>(x, 1);
+Dual<T> SeedDual(const T& x) {
+  return Dual<T>(x, 1);
 }
 
-template <class T, class D>
-Dual<T, Dual<T, D>> SeedDual(Dual<T, D> x) {
-  return Dual<T, Dual<T, D>>(x, {x.grad(), D()});
+template <class T>
+Dual<Dual<T>> SeedDual(const Dual<T>& x) {
+  return Dual<Dual<T>>(x, {x.grad(), T()});
+}
+
+////////////////////////////////////////
+// Output.
+////////////////////////////////////////
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const Dual<T>& dual) {
+  out << "[" << dual.value() << ", " << dual.grad() << "]";
+  return out;
 }

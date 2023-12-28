@@ -85,8 +85,8 @@ static void TestConfusion() {
   auto fsum = [](auto x, auto y) { return x + y; };
   auto Dy_tagged = [](auto fxy, auto c) {  //
     return [fxy, c](auto x) {
-      using U = Dual<T, T>;
-      return fxy(x, Dual<U, U>{U(c), U(1)}).grad();
+      using U = Dual<T>;
+      return fxy(x, Dual<U>{U(c), U(1)}).grad();
     };
   };
   auto Dy_naive = [](auto fxy, auto c) {  //
@@ -126,7 +126,7 @@ static void TestNested() {
 template <class T = double>
 static void TestDualMatrix() {
   std::cout << '\n' << __func__ << std::endl;
-  using D = Dual<T, T>;
+  using D = Dual<T>;
   auto x = SeedDual<T>(1);
   auto zeros = Matrix<D>::zeros(3, 3);
   auto ones = Matrix<D>::ones(3, 3);
