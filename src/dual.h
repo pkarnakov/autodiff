@@ -129,13 +129,21 @@ class Dual {
   }
 
   // Friend functions.
-  friend Dual operator+(T a, const Dual& dual) {
+  friend Dual operator+(const D& a, const Dual& dual) {
     return Dual{a + dual.u_, dual.ux_};
   }
-  friend Dual operator-(T a, const Dual& dual) {
+  friend Dual operator-(const D& a, const Dual& dual) {
     return Dual{a - dual.u_, -dual.ux_};
   }
   friend Dual operator*(T a, const Dual& dual) {
+    return Dual{a * dual.u_, a * dual.ux_};
+  }
+  // XXX: Replacing this with with
+  //   friend Dual operator*(const D& a, const Dual& dual) {
+  // causes redefinition error.
+  // TODO: Revise to avoid ambiguity with member operator*(Dual, Dual).
+  template <class U>
+  friend Dual operator*(const Dual<T, U>& a, const Dual& dual) {
     return Dual{a * dual.u_, a * dual.ux_};
   }
   friend Dual operator/(T a, const Dual& dual) {
