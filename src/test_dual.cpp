@@ -82,29 +82,29 @@ static void TestConfusion() {
   auto Dx = [](auto fx, auto c) {  //
     return [fx, c]() { return fx(SeedDual<T>(c)).grad(); };
   };
-  auto fsum = [](auto x, auto y) { return x + y; };
   auto Dy_tagged = [](auto fxy, auto c) {  //
     return [fxy, c](auto x) {
       using U = Dual<T>;
-      return fxy(x, Dual<U>{U(c), U(1)}).grad();
+      return fxy(x, SeedDual<U>(U(c))).grad();
     };
   };
   auto Dy_naive = [](auto fxy, auto c) {  //
     return [fxy, c](auto x) { return fxy(x, SeedDual<T>(c)).grad(); };
   };
-  auto deriv = [&](auto Dy) {
-    auto fmul = [Dy, fsum](auto x) { return x * Dy(fsum, T(1))(x); };
-    auto f = Dx(fmul, T(1));
+  auto deriv = [&](auto Dy, T x0, T y0) {
+    auto fsum = [](auto x, auto y) { return x + y; };
+    auto fmul = [Dy, fsum, y0](auto x) { return x * Dy(fsum, y0)(x); };
+    auto f = Dx(fmul, x0);
     return f();
   };
-  PE(deriv(Dy_naive));   // Wrong.
-  PE(deriv(Dy_tagged));  // Correct.
+  PE(deriv(Dy_naive, 1, 1));   // Wrong.
+  PE(deriv(Dy_tagged, 1, 1));  // Correct.
 }
 
 template <class F>
 auto Grad(F func) -> auto {
   return [func](auto x) {  //
-    return func(SeedDual(x)).grad();
+    return func(RaiseDual(x)).grad();
   };
 }
 

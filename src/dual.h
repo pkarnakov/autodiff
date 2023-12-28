@@ -196,11 +196,17 @@ T tanh(T x) {
 
 template <class T>
 Dual<T> SeedDual(const T& x) {
-  return Dual<T>(x, 1);
+  return Dual<T>(x, T(1));
 }
 
 template <class T>
-Dual<Dual<T>> SeedDual(const Dual<T>& x) {
+Dual<T> RaiseDual(const T& x) {
+  return SeedDual<T>(x);
+}
+
+// Returns a dual with the next higher derivative.
+template <class T>
+Dual<Dual<T>> RaiseDual(const Dual<T>& x) {
   return Dual<Dual<T>>(x, {x.grad(), T()});
 }
 
