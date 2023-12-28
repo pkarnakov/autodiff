@@ -66,6 +66,14 @@ void TestDual() {
   PE(f_if(a, b));
   PE(abs(b));
   PE(approx_sin(SeedDual(1.23)));
+
+  auto xpy = [](auto x, auto y) {
+    return x + y;
+  };
+  auto xmy = [&xpy](auto x) {
+    return x * xpy(x, SeedDual(1)).grad();
+  };
+  PE(xmy(SeedDual(1)));
 }
 
 template <class F>
