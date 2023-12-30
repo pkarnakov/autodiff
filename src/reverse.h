@@ -30,14 +30,16 @@ class Var {
   std::string name_;
 };
 
-struct DummyExtra {
+struct BaseExtra {
   template <class Node>
-  static void Apply(Node*) {}
+  void TraversePre(Node*) {}
+  template <class Node>
+  void TraversePost(Node*) {}
 };
 
 // T: type of node output value.
 // X, Y: types of node inputs.
-// E: a class containing Apply() with the same interface as DummyExtra.
+// E: a class implementing the same interface as BaseExtra.
 template <class T, class E>
 class Node;
 template <class T, class E>
@@ -76,8 +78,11 @@ class Node {
     ::Print(out, this);
   }
   using Extra = E;
-  virtual void Apply() const {
-    Extra::Apply(this);
+  virtual void TraversePre(Extra& extra) const {
+    extra.TraversePre(this);
+  }
+  virtual void TraversePost(Extra& extra) const {
+    extra.TraversePost(this);
   }
 
  protected:
@@ -101,14 +106,17 @@ class NodeVar : public Node<T, E> {
     this->grad_ = T();
   }
   void UpdateGrad(const T& du) override {
-    this->grad_ = du;
+    this->grad_ += du;
   }
   void Print(std::ostream& out) const override {
     ::Print(out, this);
   }
   using Extra = E;
-  void Apply() const override {
-    Extra::Apply(this);
+  void TraversePre(Extra& extra) const override {
+    extra.TraversePre(this);
+  }
+  void TraversePost(Extra& extra) const override {
+    extra.TraversePost(this);
   }
 
   const Var<T>& var_;
@@ -139,9 +147,13 @@ class NodeUnary : public Node<T, E> {
     ::Print(out, this);
   }
   using Extra = E;
-  void Apply() const override {
-    Extra::Apply(this);
-    x_->Apply();
+  void TraversePre(Extra& extra) const override {
+    extra.TraversePre(this);
+    x_->TraversePre(extra);
+  }
+  void TraversePost(Extra& extra) const override {
+    x_->TraversePost(extra);
+    extra.TraversePost(this);
   }
 
   std::shared_ptr<Node<X, E>> x_;
@@ -187,10 +199,15 @@ class NodeBinary : public Node<T, E> {
     ::Print(out, this);
   }
   using Extra = E;
-  void Apply() const override {
-    Extra::Apply(this);
-    x_->Apply();
-    y_->Apply();
+  void TraversePre(Extra& extra) const override {
+    extra.TraversePre(this);
+    x_->TraversePre(extra);
+    y_->TraversePre(extra);
+  }
+  void TraversePost(Extra& extra) const override {
+    x_->TraversePost(extra);
+    y_->TraversePost(extra);
+    extra.TraversePost(this);
   }
 
   std::shared_ptr<Node<X, E>> x_;
@@ -217,6 +234,9 @@ struct Tracer {
   void UpdateGrad(const T& du) const {
     node_->UpdateGrad(du);
   }
+  void UpdateGrad() const {
+    node_->UpdateGrad(T(1));
+  }
   std::string name() const {
     return node_->name();
   };
@@ -224,15 +244,18 @@ struct Tracer {
     return node_;
   }
   using Extra = E;
-  void Apply() const {
-    return node_->Apply();
+  void TraversePre(Extra& extra) const {
+    return node_->TraversePre(extra);
+  }
+  void TraversePost(Extra& extra) const {
+    return node_->TraversePost(extra);
   }
 
  private:
   std::shared_ptr<Node<T, E>> node_;
 };
 
-template <class E = DummyExtra, class T>
+template <class E = BaseExtra, class T>
 Tracer<T, E> MakeTracer(const Var<T>& var) {
   return Tracer<T, E>(var);
 }
@@ -311,7 +334,7 @@ template <class T, class E>
 Tracer<T, E> transpose(const Tracer<T, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return x.transpose(); },
-      [](const T&, const T& du) { return du.transpose(); }, "*")};
+      [](const T&, const T& du) { return du.transpose(); }, "T")};
 }
 
 template <class T, class E>
@@ -320,6 +343,13 @@ Tracer<T, E> sum(const Tracer<Matrix<T>, E>& tr_x) {
       tr_x.node(), [](const Matrix<T>& x) { return x.sum(); },
       [](const Matrix<T>& x, T du) { return du * Matrix<T>::ones_like(x); },
       "sum")};
+}
+
+template <class T, class E>
+Tracer<T, E> sum(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [](const T& x) { return x; },
+      [](const T&, T du) { return du * T(1); }, "sum")};
 }
 
 template <class T, class E>
@@ -505,61 +535,44 @@ void PrintTree(std::ostream& out, const Node<T, E>* node, int depth = 0) {
   }
 }
 
-/*
-template <class T>
-void PrintDot(std::ostream& out, const Node<T>* terminal) {
-  std::map<const Node<T>*, std::string> names;
-  std::function<void(const Node<T>*, int)> print =
-      [&print, &out, &names](const Node<T>* node, int depth) {
-        const std::string pad(depth * 4, ' ');
-        if (!names.count(node)) {
-          const size_t i = names.size();
-          names[node] = "n" + std::to_string(i);
-          out << pad;
-          out << names[node] << " [label=\"" << node->name() << "\"]\n";
-        }
-
-        {
-          if (auto ptr = dynamic_cast<const NodeVar<T>*>(node)) {
-          }
-        }
-        {
-          if (auto ptr = dynamic_cast<const NodeUnary<T>*>(node)) {
-            print(ptr->x().get(), depth + 1);
-            out << pad;
-            out << names[ptr->x().get()] << " -> " << names[node] << '\n';
-          }
-        }
-        {
-          if (auto ptr = dynamic_cast<const NodeBinary<T>*>(node)) {
-            print(ptr->x().get(), depth + 1);
-            print(ptr->y().get(), depth + 1);
-            out << pad;
-            out << names[ptr->x().get()] << " -> " << names[node] << '\n';
-            out << pad;
-            out << names[ptr->y().get()] << " -> " << names[node] << '\n';
-          }
-        }
-      };
-  out << "digraph {\n";
-  out << "    node [shape=circle, margin=0]\n";
-  print(terminal, 1);
-  out << "}\n";
-}
-
-template <class T>
-void PrintDot(std::ostream& out, const Tracer<T>& tracer) {
-  PrintDot(out, tracer.node().get());
-}
-
-template <class T>
-void PrintDot(std::string path, const Node<T>* terminal) {
-  std::ofstream fout(path);
-  PrintDot(fout, terminal);
-}
-
-template <class T>
-void PrintDot(std::string path, const Tracer<T>& tracer) {
-  PrintDot(path, tracer.node().get());
-}
-*/
+// Writes the graph in DOT format.
+struct DotWriter {
+  DotWriter(std::ostream& out_) : out(out_), pad("  ") {
+    out << "digraph {\n";
+    out << "  rankdir=\"BT\"\n";
+    out << "  node [shape=circle, margin=0]\n";
+  }
+  ~DotWriter() {
+    out << "}\n";
+  }
+  template <class T>
+  std::string nodename(T* node) {
+    if (!names.count(node)) {
+      const size_t i = names.size();
+      names[node] = "n" + std::to_string(i);
+      out << pad << names[node] << " [label=\"" << node->name() << "\"]\n";
+    }
+    return names.at(node);
+  }
+  template <class T, class E>
+  void Write(const Node<T, E>*) {}
+  template <class T, class E>
+  void Write(const NodeVar<T, E>*) {}
+  template <class T, class X, class E>
+  void Write(const NodeUnary<T, X, E>* node) {
+    const auto name = nodename(node);
+    const auto xname = nodename(node->x().get());
+    out << pad << xname << " -> " << name << '\n';
+  }
+  template <class T, class X, class Y, class E>
+  void Write(const NodeBinary<T, X, Y, E>* node) {
+    const auto name = nodename(node);
+    const auto xname = nodename(node->x().get());
+    const auto yname = nodename(node->y().get());
+    out << pad << xname << " -> " << name << '\n';
+    out << pad << yname << " -> " << name << '\n';
+  }
+  std::ostream& out;
+  std::map<const void*, std::string> names;
+  std::string pad;
+};

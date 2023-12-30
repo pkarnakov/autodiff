@@ -274,8 +274,14 @@ class Matrix {
   static Matrix zeros(size_t nrow, size_t ncol) {
     return Matrix(nrow, ncol, T(0));
   }
+  static Matrix zeros(size_t n) {
+    return Matrix::zeros(n, n);
+  }
   static Matrix ones(size_t nrow, size_t ncol) {
     return Matrix(nrow, ncol, T(1));
+  }
+  static Matrix ones(size_t n) {
+    return Matrix::ones(n, n);
   }
   template <class U>
   static Matrix zeros_like(const Matrix<U>& other) {
@@ -293,6 +299,9 @@ class Matrix {
       }
     }
     return res;
+  }
+  static Matrix eye(size_t n) {
+    return Matrix::eye(n, n);
   }
 
  private:

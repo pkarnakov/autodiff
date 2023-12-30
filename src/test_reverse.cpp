@@ -9,68 +9,67 @@
 #define PE(a) std::cout << #a << ": " << a << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << a << std::endl;
 
-template <class T = double>
-static void TestReverse() {
-  const auto pi = M_PI;
-  std::cout << '\n' << __func__ << std::endl;
-  auto var_x = Var<T>(pi / 6, "x");
-  auto var_y = Var<T>(pi / 3, "y");
-  PE(var_x);
-  PE(var_y);
-  auto x = Tracer(var_x);
-  auto y = Tracer(var_y);
-  auto e = sin(x) * cos(y) + cos(x) * sin(y);
-  PE(e);
-  PrintDot("graph.gv", e);
-}
-
-struct Extra {
-  template <class Node>
-  static void Apply(Node* node) {
-    std::cout << *node << '\n';
+struct Extra : public BaseExtra {
+  Extra(std::ostream& out) : dot(out) {}
+  template <class N>
+  void TraversePre(N* node) {
+    dot.Write(node);
   }
+  DotWriter dot;
 };
 
-template <class T = double>
-static void TestGrad() {
+template <class T>
+static void TestReverse(const T& eye, std::string suff) {
   std::cout << '\n' << __func__ << std::endl;
-  const auto eye = Matrix<T>::eye(3, 3);
-  const auto zeros = Matrix<T>::zeros(3, 3);
-  using M = Matrix<T>;
-  auto var_x = Var<M>(eye, "x");
-  auto var_y = Var<M>(1 + eye, "y");
+  const auto pi = M_PI;
+  Var var_x(eye * (pi / 8), "x");
+  Var var_y(eye * (pi / 8), "y");
   PE(var_x);
   PE(var_y);
   auto x = MakeTracer<Extra>(var_x);
   auto y = MakeTracer<Extra>(var_y);
-  auto e = sum(sin(x) * cos(y) + cos(x) * sin(y));
-  e.UpdateGrad(1.);
-  PE(e.value());
-  PE(x.grad());
-  PE(y.grad());
-  e.Apply();
+  auto eval = [&](auto& e, std::string path) {
+    e.ClearGrad();
+    e.UpdateGrad();
+    PE(e.value());
+    PE(x.grad());
+    PE(y.grad());
+    std::cout << path << std::endl;
+    std::ofstream fout(path);
+    Extra extra(fout);
+    e.TraversePre(extra);
+  };
+  auto e1 = sum(sin(x) * cos(y) + cos(x) * sin(y));
+  eval(e1, "reverse_" + suff + ".gv");
+  auto e2 = sum(sin(x + y));
+  eval(e2, "reverse_" + suff + ".gv");
 }
 
 template <class T = double>
 static void TestNested() {
+  // TODO: Implement.
   std::cout << '\n' << __func__ << std::endl;
-  auto var_x = Var<T>(0, "x");
-  auto var_y = Var<T>(0, "y");
-  auto var_one = Var<T>(1, "1");
-  auto x = Tracer(var_x);
-  auto y = Tracer(var_y);
-  auto one = Tracer(var_one);
-  auto var_tx = Var(x, one, "tx");
-  auto var_ty = Var(y, one, "ty");
-  auto tx = Tracer(var_tx);
-  auto ty = Tracer(var_ty);
+  Var<T> var_x(0, "x");
+  Var<T> var_y(0, "y");
+  auto x = MakeTracer<Extra>(var_x);
+  auto y = MakeTracer<Extra>(var_y);
+  Var var_tx(x, "tx");
+  Var var_ty(y, "ty");
+  auto tx = MakeTracer<Extra>(var_tx);
+  auto ty = MakeTracer<Extra>(var_ty);
   auto e = sin(tx) * cos(ty) + cos(tx) * sin(ty);
-  PrintDot("nested_value.gv", e.value());
-  PrintDot("nested_grad.gv", e.grad());
+  auto eval = [&](auto& tracer, std::string path) {
+    std::cout << path << std::endl;
+    std::ofstream fout(path);
+    Extra extra(fout);
+    tracer.TraversePre(extra);
+  };
+  //eval(e.value(), "nested_value.gv");
+  //eval(e.grad(), "nested_grad.gv");
 }
 
 int main() {
-  // TestReverse();
-  TestGrad();
-  // TestNested();
+  TestReverse(1., "scal");
+  TestReverse(Matrix<double>::eye(3), "matr");
+  //TestNested();
 }

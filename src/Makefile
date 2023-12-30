@@ -28,5 +28,8 @@ $(BUILD)/test_matrix: test_matrix.cpp macros.h matrix.h | $(BUILD)
 clean:
 	$(RM) -r $(BUILD)
 
+cleandata:
+	$(RM) *.pdf *.gv
+
 .SUFFIXES:
 .PHONY: clean all
