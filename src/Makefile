@@ -42,7 +42,7 @@ clean:
 	$(RM) -r $(BUILD)
 
 cleandata:
-	$(RM) *.pdf *.gv *.dat
+	$(RM) *.pdf *.gv *.dat *.png
 
 .SUFFIXES:
-.PHONY: clean all
+.PHONY: all clean cleandata run_poisson plot_u

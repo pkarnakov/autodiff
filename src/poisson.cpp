@@ -29,8 +29,8 @@ struct Config {
 
 template <class Scal = double>
 static void RunPoisson(Config config) {
-  // Writes graph_to_dot to DOT file.
-  auto dump_graph = [&](auto& e, std::string path) {
+  // Writes graph to DOT file.
+  auto dump_graph = [](auto& e, std::string path) {
     std::ofstream fout(path);
     Extra extra(fout);
     e.TraversePre(extra);

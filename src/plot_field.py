@@ -20,14 +20,8 @@ def plot(path, u, vmin=None, vmax=None):
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     fig.add_axes(ax)
-    ax.imshow(u.T,
-              interpolation='nearest',
-              cmap='Oranges',
-              vmin=u.min(),
-              vmax=u.max(),
-              extent=extent,
-              origin='lower',
-              aspect='equal')
+    ax.imshow(u.T, interpolation='nearest', cmap='Oranges', vmin=u.min(),
+              vmax=u.max(), extent=extent, origin='lower', aspect='equal')
     fig.savefig(path, pad_inches=0, bbox_inches='tight', dpi=1)
     plt.close(fig)
 
