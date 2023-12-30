@@ -17,6 +17,9 @@ class Var {
   const T& value() const {
     return *value_;
   }
+  T& value() {
+    return *value_;
+  }
   const std::string& name() const {
     return name_;
   }
@@ -399,6 +402,13 @@ Tracer<T, E> log(const Tracer<T, E>& tr_x) {
   return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return log(x); },  //
       [](const T& x) { return 1 / x; }, "log");
+}
+
+template <class T, class E>
+Tracer<T, E> sqr(const Tracer<T, E>& tr_x) {
+  return ApplyScalarFunction<T, E>(
+      tr_x, [](const T& x) { return sqr(x); },  //
+      [](const T& x) { return 2 * x; }, "sqr");
 }
 
 ////////////////////////////////////////

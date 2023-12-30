@@ -2,3 +2,5 @@ build/
 *.gv
 *.pdf
 *.svg
+*.png
+*.dat

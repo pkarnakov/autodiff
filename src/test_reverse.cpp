@@ -40,9 +40,9 @@ static void TestReverse(const T& eye, std::string suff) {
     e.TraversePre(extra);
   };
   auto e1 = sum(sin(x) * cos(y) + cos(x) * sin(y));
-  eval(e1, "reverse_" + suff + ".gv");
+  eval(e1, "reverse_" + suff + "1.gv");
   auto e2 = sum(sin(x + y));
-  eval(e2, "reverse_" + suff + ".gv");
+  eval(e2, "reverse_" + suff + "2.gv");
 }
 
 template <class T = double>

@@ -189,12 +189,6 @@ class Dual {
 };
 
 template <class T>
-T tanh(T x) {
-  using std::exp;
-  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
-}
-
-template <class T>
 Dual<T> SeedDual(const T& x) {
   return Dual<T>(x, T(1));
 }

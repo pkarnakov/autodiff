@@ -9,6 +9,17 @@
 #include "macros.h"
 
 template <class T>
+T sqr(T x) {
+  return x * x;
+}
+
+template <class T>
+T tanh(T x) {
+  using std::exp;
+  return (exp(x) - exp(-x)) / (exp(x) + exp(-x));
+}
+
+template <class T>
 class Matrix {
  public:
   // Constructor.
@@ -311,6 +322,9 @@ class Matrix {
     using std::log;
     return matr.apply([](T x) { return log(x); });
   }
+  friend Matrix sqr(const Matrix& matr) {
+    return matr.apply([](T x) { return sqr(x); });
+  }
   friend Matrix operator+(const T& a, const Matrix& matr) {
     Matrix res(matr.nrow_, matr.ncol_);
     for (size_t i = 0; i < matr.data_.size(); ++i) {
@@ -339,6 +353,11 @@ class Matrix {
     }
     return res;
   }
+  friend Matrix roll(const Matrix& matr, int shift_row, int shift_col) {
+    return matr.roll(shift_row, shift_col);
+  }
+
+  // Static functions.
   static Matrix zeros(size_t nrow, size_t ncol) {
     return Matrix(nrow, ncol, T(0));
   }
@@ -420,9 +439,12 @@ std::ostream& operator<<(std::ostream& out, const Matrix<T>& matr) {
 }
 
 template <class T>
-std::string MatrixToStr(const Matrix<T>& matr, int width = 3,
-                        int precision = 6) {
+std::string MatrixToStr(const Matrix<T>& matr, int width = 3, int precision = 6,
+                        bool fixed = false) {
   std::stringstream out;
+  if (fixed) {
+    out << std::fixed;
+  }
   out.precision(precision);
   for (size_t i = 0; i < matr.nrow(); ++i) {
     for (size_t j = 0; j < matr.ncol(); ++j) {
