@@ -8,23 +8,6 @@
 #define PE(a) std::cout << #a << ": " << a << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << a << '\n' << std::endl;
 
-template <class T>
-std::string Str(const Matrix<T>& matr) {
-  std::stringstream out;
-  for (size_t i = 0; i < matr.nrow(); ++i) {
-    for (size_t j = 0; j < matr.ncol(); ++j) {
-      out << std::setw(3) << matr(i, j);
-      if (j + 1 < matr.ncol()) {
-        out << ' ';
-      }
-    }
-    if (i + 1 < matr.nrow()) {
-      out << '\n';
-    }
-  }
-  return out.str();
-};
-
 template <class T = double>
 static void TestMatrix() {
   std::cout << '\n' << __func__ << std::endl;
@@ -47,10 +30,8 @@ static void TestMatrix() {
 template <class T = double>
 static void TestRoll() {
   std::cout << '\n' << __func__ << std::endl;
-  Matrix<T> matr(5);
-  for (size_t i = 0; i < matr.size(); ++i) {
-    matr[i] = i;
-  }
+  auto matr = Matrix<T>::iota(5);
+  auto Str = [](auto m) { return MatrixToStr(m); };
   PEN(Str(matr));
   PEN(Str(matr.roll(0, 1)));
   PEN(Str(matr.roll(1, 0)));

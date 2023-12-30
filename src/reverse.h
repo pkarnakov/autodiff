@@ -338,6 +338,21 @@ Tracer<T, E> transpose(const Tracer<T, E>& tr_x) {
 }
 
 template <class T, class E>
+Tracer<T, E> roll(const Tracer<T, E>& tr_x, int shift_row, int shift_col) {
+  const auto name = "roll(" + std::to_string(shift_row) + "," +
+                    std::to_string(shift_col) + ")";
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(),
+      [shift_row, shift_col](const T& x) {
+        return x.roll(shift_row, shift_col);
+      },
+      [shift_row, shift_col](const T&, const T& du) {
+        return du.roll(-shift_row, -shift_col);
+      },
+      name)};
+}
+
+template <class T, class E>
 Tracer<T, E> sum(const Tracer<Matrix<T>, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
       tr_x.node(), [](const Matrix<T>& x) { return x.sum(); },

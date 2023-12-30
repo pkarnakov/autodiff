@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <iosfwd>
 #include <vector>
 
@@ -179,9 +180,9 @@ class Matrix {
     auto& src = *this;
     auto& dst = res;
     // Rectangle to copy:
-    Idx idst; // Starting position in dst.
-    Idx isrc; // Starting position in src.
-    Idx icnt; // Elements to copy.
+    Idx idst;  // Starting position in dst.
+    Idx isrc;  // Starting position in src.
+    Idx icnt;  // Elements to copy.
 
     // Flips the rectangle along axis k.
     auto flip = [&](int k) {
@@ -377,6 +378,16 @@ class Matrix {
     }
     return res;
   }
+  static Matrix iota(size_t nrow, size_t ncol) {
+    Matrix res(nrow, ncol);
+    for (size_t i = 0; i < res.size(); ++i) {
+      res[i] = i;
+    }
+    return res;
+  }
+  static Matrix iota(size_t n) {
+    return Matrix::iota(n, n);
+  }
 
  private:
   size_t nrow_;
@@ -407,3 +418,22 @@ std::ostream& operator<<(std::ostream& out, const Matrix<T>& matr) {
   out << ']';
   return out;
 }
+
+template <class T>
+std::string MatrixToStr(const Matrix<T>& matr, int width = 3,
+                        int precision = 6) {
+  std::stringstream out;
+  out.precision(precision);
+  for (size_t i = 0; i < matr.nrow(); ++i) {
+    for (size_t j = 0; j < matr.ncol(); ++j) {
+      out << std::setw(width) << matr(i, j);
+      if (j + 1 < matr.ncol()) {
+        out << ' ';
+      }
+    }
+    if (i + 1 < matr.nrow()) {
+      out << '\n';
+    }
+  }
+  return out.str();
+};

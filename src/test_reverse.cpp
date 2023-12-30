@@ -64,12 +64,31 @@ static void TestNested() {
     Extra extra(fout);
     tracer.TraversePre(extra);
   };
-  //eval(e.value(), "nested_value.gv");
-  //eval(e.grad(), "nested_grad.gv");
+  // eval(e.value(), "nested_value.gv");
+  // eval(e.grad(), "nested_grad.gv");
+}
+
+template <class T = double>
+static void TestRoll() {
+  std::cout << '\n' << __func__ << std::endl;
+  auto Str = [](auto m) { return MatrixToStr(m, 3); };
+  auto matr = Matrix<T>::iota(5);
+  auto zeros = Matrix<T>::zeros_like(matr);
+  Var var_x(zeros, "x");
+  PEN(Str(matr));
+  auto x = MakeTracer<Extra>(var_x);
+  auto grad = [&](auto e) {
+    e.ClearGrad();
+    e.UpdateGrad();
+    return x.grad();
+  };
+  PEN(Str(grad(sum(x * matr))));
+  PEN(Str(grad(sum(roll(x, 1, 2) * matr))));
 }
 
 int main() {
   TestReverse(1., "scal");
   TestReverse(Matrix<double>::eye(3), "matr");
-  //TestNested();
+  TestRoll();
+  // TestNested();
 }
