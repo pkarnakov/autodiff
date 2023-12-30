@@ -17,10 +17,10 @@ make build/test_dual && build/test_dual
 
 ```
 cd src
-make build/test_reverse && build/test_reverse && make graph.pdf
+make build/test_reverse && build/test_reverse && make reverse_scal1.pdf
 ```
 
-<img src="https://pkarnakov.github.io/autodiff/media/graph.svg" height="200px">
+<img src="https://pkarnakov.github.io/autodiff/media/reverse_scal1.svg" height="200px">
 
 ## Poisson
 
