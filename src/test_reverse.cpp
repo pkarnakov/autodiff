@@ -24,6 +24,13 @@ static void TestReverse() {
   PrintDot("graph.gv", e);
 }
 
+struct Extra {
+  template <class Node>
+  static void Apply(Node* node) {
+    std::cout << *node << '\n';
+  }
+};
+
 template <class T = double>
 static void TestGrad() {
   std::cout << '\n' << __func__ << std::endl;
@@ -34,15 +41,14 @@ static void TestGrad() {
   auto var_y = Var<M>(1 + eye, "y");
   PE(var_x);
   PE(var_y);
-  auto x = Tracer(var_x);
-  auto y = Tracer(var_y);
-  auto e = sum(x / y);
+  auto x = MakeTracer<Extra>(var_x);
+  auto y = MakeTracer<Extra>(var_y);
+  auto e = sum(sin(x) * cos(y) + cos(x) * sin(y));
   e.UpdateGrad(1.);
-  PE(x + y);
-  PE(*(x * 2).node());
   PE(e.value());
   PE(x.grad());
   PE(y.grad());
+  e.Apply();
 }
 
 template <class T = double>

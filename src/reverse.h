@@ -30,27 +30,35 @@ class Var {
   std::string name_;
 };
 
-template <class T>
+struct DummyExtra {
+  template <class Node>
+  static void Apply(Node*) {}
+};
+
+// T: type of node output value.
+// X, Y: types of node inputs.
+// E: a class containing Apply() with the same interface as DummyExtra.
+template <class T, class E>
 class Node;
-template <class T>
+template <class T, class E>
 class NodeVar;
-template <class T, class X>
+template <class T, class X, class E>
 class NodeUnary;
-template <class T, class X, class Y>
+template <class T, class X, class Y, class E>
 class NodeBinary;
 
 // TODO: Revise without forward declaration of output functions.
 //       Consider making the tree traversal polymorphic.
-template <class T>
-void Print(std::ostream&, const Node<T>*);
-template <class T>
-void Print(std::ostream&, const NodeVar<T>*);
-template <class T, class X>
-void Print(std::ostream&, const NodeUnary<T, X>*);
-template <class T, class X, class Y>
-void Print(std::ostream&, const NodeBinary<T, X, Y>*);
+template <class T, class E>
+void Print(std::ostream&, const Node<T, E>*);
+template <class T, class E>
+void Print(std::ostream&, const NodeVar<T, E>*);
+template <class T, class X, class E>
+void Print(std::ostream&, const NodeUnary<T, X, E>*);
+template <class T, class X, class Y, class E>
+void Print(std::ostream&, const NodeBinary<T, X, Y, E>*);
 
-template <class T>
+template <class T, class E>
 class Node {
  public:
   Node(const std::string& name = "") : name_(name), grad_(T()) {}
@@ -67,17 +75,21 @@ class Node {
   virtual void Print(std::ostream& out) const {
     ::Print(out, this);
   }
+  using Extra = E;
+  virtual void Apply() const {
+    Extra::Apply(this);
+  }
 
  protected:
   std::string name_;
   T grad_;
 };
 
-template <class T>
-class NodeVar : public Node<T> {
+template <class T, class E>
+class NodeVar : public Node<T, E> {
  public:
   NodeVar(const Var<T>& var, std::string name = "")
-      : Node<T>(name), var_(var) {}
+      : Node<T, E>(name), var_(var) {}
 
   T value() const override {
     return var_.value();
@@ -94,16 +106,20 @@ class NodeVar : public Node<T> {
   void Print(std::ostream& out) const override {
     ::Print(out, this);
   }
+  using Extra = E;
+  void Apply() const override {
+    Extra::Apply(this);
+  }
 
   const Var<T>& var_;
 };
 
-template <class T, class X>
-class NodeUnary : public Node<T> {
+template <class T, class X, class E>
+class NodeUnary : public Node<T, E> {
  public:
-  NodeUnary(std::shared_ptr<Node<X>> x, std::function<T(const X&)> fvalue,
+  NodeUnary(std::shared_ptr<Node<X, E>> x, std::function<T(const X&)> fvalue,
             std::function<X(const X&, const T&)> fgrad, std::string name = "")
-      : Node<T>(name), x_(x), fvalue_(fvalue), fgrad_(fgrad) {}
+      : Node<T, E>(name), x_(x), fvalue_(fvalue), fgrad_(fgrad) {}
 
   T value() const override {
     return fvalue_(x_->value());
@@ -116,27 +132,32 @@ class NodeUnary : public Node<T> {
     this->grad_ += du;
     x_->UpdateGrad(fgrad_(x_->value(), du));
   }
-  const std::shared_ptr<Node<X>>& x() const {
+  const std::shared_ptr<Node<X, E>>& x() const {
     return x_;
   }
   void Print(std::ostream& out) const override {
     ::Print(out, this);
   }
+  using Extra = E;
+  void Apply() const override {
+    Extra::Apply(this);
+    x_->Apply();
+  }
 
-  std::shared_ptr<Node<X>> x_;
+  std::shared_ptr<Node<X, E>> x_;
   std::function<T(const X&)> fvalue_;
   std::function<X(const X&, const T&)> fgrad_;
 };
 
-template <class T, class X, class Y>
-class NodeBinary : public Node<T> {
+template <class T, class X, class Y, class E>
+class NodeBinary : public Node<T, E> {
  public:
-  NodeBinary(std::shared_ptr<Node<X>> x, std::shared_ptr<Node<Y>> y,
+  NodeBinary(std::shared_ptr<Node<X, E>> x, std::shared_ptr<Node<Y, E>> y,
              std::function<T(const X&, const Y&)> fvalue,
              std::function<X(const X&, const Y&, const T&)> fgradx,
              std::function<Y(const X&, const Y&, const T&)> fgrady,
              std::string name = "")
-      : Node<T>(name),
+      : Node<T, E>(name),
         x_(x),
         y_(y),
         fvalue_(fvalue),
@@ -156,28 +177,34 @@ class NodeBinary : public Node<T> {
     x_->UpdateGrad(fgradx_(x_->value(), y_->value(), du));
     y_->UpdateGrad(fgrady_(x_->value(), y_->value(), du));
   }
-  const std::shared_ptr<Node<T>>& x() const {
+  const std::shared_ptr<Node<T, E>>& x() const {
     return x_;
   }
-  const std::shared_ptr<Node<T>>& y() const {
+  const std::shared_ptr<Node<T, E>>& y() const {
     return y_;
   }
   void Print(std::ostream& out) const override {
     ::Print(out, this);
   }
+  using Extra = E;
+  void Apply() const override {
+    Extra::Apply(this);
+    x_->Apply();
+    y_->Apply();
+  }
 
-  std::shared_ptr<Node<X>> x_;
-  std::shared_ptr<Node<Y>> y_;
+  std::shared_ptr<Node<X, E>> x_;
+  std::shared_ptr<Node<Y, E>> y_;
   std::function<T(const X&, const Y&)> fvalue_;
   std::function<X(const X&, const Y&, const T&)> fgradx_;
   std::function<Y(const X&, const Y&, const T&)> fgrady_;
 };
 
-template <class T>
+template <class T, class E>
 struct Tracer {
-  Tracer(std::shared_ptr<Node<T>> node) : node_(node) {}
+  Tracer(std::shared_ptr<Node<T, E>> node) : node_(node) {}
   Tracer(const Var<T>& var)
-      : node_(std::make_shared<NodeVar<T>>(var, var.name())) {}
+      : node_(std::make_shared<NodeVar<T, E>>(var, var.name())) {}
   T value() const {
     return node_->value();
   }
@@ -193,129 +220,138 @@ struct Tracer {
   std::string name() const {
     return node_->name();
   };
-  const std::shared_ptr<Node<T>>& node() const {
+  const std::shared_ptr<Node<T, E>>& node() const {
     return node_;
+  }
+  using Extra = E;
+  void Apply() const {
+    return node_->Apply();
   }
 
  private:
-  std::shared_ptr<Node<T>> node_;
+  std::shared_ptr<Node<T, E>> node_;
 };
+
+template <class E = DummyExtra, class T>
+Tracer<T, E> MakeTracer(const Var<T>& var) {
+  return Tracer<T, E>(var);
+}
 
 ////////////////////////////////////////
 // Unary operations.
 ////////////////////////////////////////
 
-template <class T>
-Tracer<T> ApplyScalarFunction(const Tracer<T>& tr_x,
-                              std::function<T(const T&)> fvalue,
-                              std::function<T(const T&)> fgrad,
-                              const std::string& name = "") {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E>
+Tracer<T, E> ApplyScalarFunction(const Tracer<T, E>& tr_x,
+                                 std::function<T(const T&)> fvalue,
+                                 std::function<T(const T&)> fgrad,
+                                 const std::string& name = "") {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [fvalue](const T& x) { return fvalue(x); },
       [fgrad](const T& x, const T& du) { return fgrad(x) * du; }, name)};
 }
 
-template <class T, class Scal>
-Tracer<T> operator+(const Tracer<T>& tr_x, const Scal& y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator+(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [y](const T& x) { return x + y; },
       [](const T&, const T& du) { return du; }, "+")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator+(const Scal& x, const Tracer<T>& tr_y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator+(const Scal& x, const Tracer<T, E>& tr_y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_y.node(), [x](const T& y) { return x + y; },
       [](const T&, const T& du) { return du; }, "+")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator-(const Tracer<T>& tr_x, const Scal& y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator-(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [y](const T& x) { return x - y; },
       [](const T&, const T& du) { return du; }, "-")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator-(const Scal& x, const Tracer<T>& tr_y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator-(const Scal& x, const Tracer<T, E>& tr_y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_y.node(), [x](const T& y) { return x - y; },
       [](const T&, const T& du) { return -du; }, "-")};
 }
 
-template <class T>
-Tracer<T> operator-(const Tracer<T>& tr_x) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E>
+Tracer<T, E> operator-(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return -x; },
       [](const T&, const T& du) { return -du; }, "-")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator*(const Tracer<T>& tr_x, const Scal& y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator*(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [y](const T& x) { return x * y; },
       [y](const T&, const T& du) { return du * y; }, "*")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator*(const Scal& x, const Tracer<T>& tr_y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator*(const Scal& x, const Tracer<T, E>& tr_y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_y.node(), [x](const T& y) { return x * y; },
       [x](const T&, const T& du) { return x * du; }, "*")};
 }
 
-template <class T, class Scal>
-Tracer<T> operator/(const Tracer<T>& tr_x, const Scal& y) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E, class Scal>
+Tracer<T, E> operator/(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [y](const T& x) { return x / y; },
       [y](const T&, const T& du) { return du / y; }, "/")};
 }
 
-template <class T>
-Tracer<T> transpose(const Tracer<T>& tr_x) {
-  return {std::make_shared<NodeUnary<T, T>>(
+template <class T, class E>
+Tracer<T, E> transpose(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return x.transpose(); },
       [](const T&, const T& du) { return du.transpose(); }, "*")};
 }
 
-template <class T>
-Tracer<T> sum(const Tracer<Matrix<T>>& tr_x) {
-  return {std::make_shared<NodeUnary<T, Matrix<T>>>(
+template <class T, class E>
+Tracer<T, E> sum(const Tracer<Matrix<T>, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
       tr_x.node(), [](const Matrix<T>& x) { return x.sum(); },
       [](const Matrix<T>& x, T du) { return du * Matrix<T>::ones_like(x); },
       "sum")};
 }
 
-template <class T>
-Tracer<T> sin(const Tracer<T>& tr_x) {
+template <class T, class E>
+Tracer<T, E> sin(const Tracer<T, E>& tr_x) {
   using std::cos;
   using std::sin;
-  return ApplyScalarFunction<T>(
+  return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return sin(x); },
       [](const T& x) { return cos(x); }, "sin");
 }
 
-template <class T>
-Tracer<T> cos(const Tracer<T>& tr_x) {
+template <class T, class E>
+Tracer<T, E> cos(const Tracer<T, E>& tr_x) {
   using std::cos;
   using std::sin;
-  return ApplyScalarFunction<T>(
+  return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return cos(x); },
       [](const T& x) { return -sin(x); }, "cos");
 }
 
-template <class T>
-Tracer<T> exp(const Tracer<T>& tr_x) {
+template <class T, class E>
+Tracer<T, E> exp(const Tracer<T, E>& tr_x) {
   using std::exp;
-  return ApplyScalarFunction<T>(
+  return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return exp(x); },
       [](const T& x) { return exp(x); }, "exp");
 }
 
-template <class T>
-Tracer<T> log(const Tracer<T>& tr_x) {
+template <class T, class E>
+Tracer<T, E> log(const Tracer<T, E>& tr_x) {
   using std::log;
-  return ApplyScalarFunction<T>(
+  return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return log(x); },  //
       [](const T& x) { return 1 / x; }, "log");
 }
@@ -324,36 +360,36 @@ Tracer<T> log(const Tracer<T>& tr_x) {
 // Binary operations.
 ////////////////////////////////////////
 
-template <class T>
-Tracer<T> operator+(Tracer<T> tr_x, Tracer<T> tr_y) {
-  return {std::make_shared<NodeBinary<T, T, T>>(
+template <class T, class E>
+Tracer<T, E> operator+(Tracer<T, E> tr_x, Tracer<T, E> tr_y) {
+  return {std::make_shared<NodeBinary<T, T, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const T& y) { return x + y; },
       [](const T&, const T&, const T& du) { return du; },
       [](const T&, const T&, const T& du) { return du; }, "+")};
 }
 
-template <class T>
-Tracer<T> operator-(Tracer<T> tr_x, Tracer<T> tr_y) {
-  return {std::make_shared<NodeBinary<T, T, T>>(
+template <class T, class E>
+Tracer<T, E> operator-(Tracer<T, E> tr_x, Tracer<T, E> tr_y) {
+  return {std::make_shared<NodeBinary<T, T, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const T& y) { return x - y; },
       [](const T&, const T&, const T& du) { return du; },
       [](const T&, const T&, const T& du) { return -du; }, "-")};
 }
 
-template <class T>
-Tracer<T> operator*(Tracer<T> tr_x, Tracer<T> tr_y) {
-  return {std::make_shared<NodeBinary<T, T, T>>(
+template <class T, class E>
+Tracer<T, E> operator*(Tracer<T, E> tr_x, Tracer<T, E> tr_y) {
+  return {std::make_shared<NodeBinary<T, T, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const T& y) { return x * y; },
       [](const T&, const T& y, const T& du) { return y * du; },
       [](const T& x, const T&, const T& du) { return x * du; }, "*")};
 }
 
-template <class T>
-Tracer<T> operator/(Tracer<T> tr_x, Tracer<T> tr_y) {
-  return {std::make_shared<NodeBinary<T, T, T>>(
+template <class T, class E>
+Tracer<T, E> operator/(Tracer<T, E> tr_x, Tracer<T, E> tr_y) {
+  return {std::make_shared<NodeBinary<T, T, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const T& y) { return x / y; },
       [](const T&, const T& y, const T& du) { return du / y; },
@@ -390,25 +426,25 @@ std::string GetTypeName() {
   return TypeName<T>::value;
 }
 
-template <class T>
-void Print(std::ostream& out, const Node<T>* node) {
+template <class T, class E>
+void Print(std::ostream& out, const Node<T, E>* node) {
   out << "Node(" << node->name() << ", " << GetTypeName<T>() << ")";
 }
 
-template <class T>
-void Print(std::ostream& out, const NodeVar<T>* node) {
+template <class T, class E>
+void Print(std::ostream& out, const NodeVar<T, E>* node) {
   out << "NodeVar(" << node->var() << ")";
 }
 
-template <class T, class X>
-void Print(std::ostream& out, const NodeUnary<T, X>* node) {
+template <class T, class X, class E>
+void Print(std::ostream& out, const NodeUnary<T, X, E>* node) {
   out << "NodeUnary(" << node->name() << "[" << node->x()->name() << "]"
       << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << "]"
       << ")";
 }
 
-template <class T, class X, class Y>
-void Print(std::ostream& out, const NodeBinary<T, X, Y>* node) {
+template <class T, class X, class Y, class E>
+void Print(std::ostream& out, const NodeBinary<T, X, Y, E>* node) {
   out << "NodeBinary(" << node->name() << "[" << node->x()->name() << ","
       << node->y()->name() << "]"
       << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << ","
@@ -427,41 +463,41 @@ std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
   return out;
 }
 
-template <class T>
-std::ostream& operator<<(std::ostream& out, const Node<T>& node) {
+template <class T, class E>
+std::ostream& operator<<(std::ostream& out, const Node<T, E>& node) {
   node.Print(out);
   return out;
 }
 
-template <class T>
-std::ostream& operator<<(std::ostream& out, const Tracer<T>& tracer) {
+template <class T, class E>
+std::ostream& operator<<(std::ostream& out, const Tracer<T, E>& tracer) {
   out << "Tracer(";
   tracer.node()->Print(out);
   out << ")";
   return out;
 }
 
-template <class T>
-void PrintTree(std::ostream& out, const Tracer<T> tracer) {
+template <class T, class E>
+void PrintTree(std::ostream& out, const Tracer<T, E> tracer) {
   PrintTree(out, tracer.node().get());
 }
 
-template <class T>
-void PrintTree(std::ostream& out, const Node<T>* node, int depth = 0) {
+template <class T, class E>
+void PrintTree(std::ostream& out, const Node<T, E>* node, int depth = 0) {
   out << std::string(depth * 4, '.');
   {
-    if (auto ptr = dynamic_cast<const NodeVar<T>*>(node)) {
+    if (auto ptr = dynamic_cast<const NodeVar<T, E>*>(node)) {
       out << *ptr << '\n';
     }
   }
   {
-    if (auto ptr = dynamic_cast<const NodeUnary<T, T>*>(node)) {
+    if (auto ptr = dynamic_cast<const NodeUnary<T, T, E>*>(node)) {
       out << *ptr << '\n';
       PrintTree(out, ptr->x().get(), depth + 1);
     }
   }
   {
-    if (auto ptr = dynamic_cast<const NodeBinary<T, T, T>*>(node)) {
+    if (auto ptr = dynamic_cast<const NodeBinary<T, T, T, E>*>(node)) {
       out << *ptr << '\n';
       PrintTree(out, ptr->x().get(), depth + 1);
       PrintTree(out, ptr->y().get(), depth + 1);
