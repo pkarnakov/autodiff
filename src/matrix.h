@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <iosfwd>
 #include <vector>
@@ -11,6 +12,7 @@ class Matrix {
  public:
   // Constructor.
   Matrix() : nrow_(0), ncol_(0) {}
+  explicit Matrix(size_t n) : Matrix(n, n) {}
   Matrix(size_t nrow, size_t ncol)
       : nrow_(nrow), ncol_(ncol), data_(nrow * ncol) {}
   Matrix(size_t nrow, size_t ncol, T a)
@@ -42,6 +44,9 @@ class Matrix {
   }
   size_t ncol() const {
     return ncol_;
+  }
+  size_t size() const {
+    return nrow_ * ncol_;
   }
 
   // Assignment.
@@ -162,6 +167,68 @@ class Matrix {
         res(j, i) = (*this)(i, j);
       }
     }
+    return res;
+  }
+  Matrix roll(int shift_row, int shift_col) const {
+    using Idx = size_t[2];
+    Matrix res(nrow_, ncol_);
+    if (nrow_ == 0 || ncol_ == 0) {
+      return res;
+    }
+    const Idx shape = {nrow_, ncol_};
+    auto& src = *this;
+    auto& dst = res;
+    // Rectangle to copy:
+    Idx idst; // Starting position in dst.
+    Idx isrc; // Starting position in src.
+    Idx icnt; // Elements to copy.
+
+    // Flips the rectangle along axis k.
+    auto flip = [&](int k) {
+      idst[k] = (idst[k] == 0 ? icnt[k] : 0);
+      isrc[k] = (isrc[k] == 0 ? icnt[k] : 0);
+      icnt[k] = shape[k] - icnt[k];
+    };
+    // Copies the rectangle to dst from src.
+    auto copy = [&]() {
+      if (icnt[0] == 0 || icnt[1] == 0) {
+        return;
+      }
+      for (auto k : {0, 1}) {
+        fassert(idst[k] + icnt[k] <= shape[k]);
+        fassert(isrc[k] + icnt[k] <= shape[k]);
+      }
+      for (size_t i = 0; i < icnt[0]; ++i) {
+        for (size_t j = 0; j < icnt[1]; ++j) {
+          dst(idst[0] + i, idst[1] + j) = src(isrc[0] + i, isrc[1] + j);
+        }
+      }
+    };
+
+    // Normalize shift to positive values and select one rectangle to copy.
+    int shift[2] = {shift_row, shift_col};
+    for (auto k : {0, 1}) {
+      if (shift[k] < 0) {
+        shift[k] = shape[k] - (-shift[k]) % shape[k];
+      } else {
+        shift[k] = shift[k] % shape[k];
+      }
+      idst[k] = shift[k];
+      isrc[k] = 0;
+      icnt[k] = size_t(shape[k] - shift[k]);
+    }
+
+    copy();
+
+    flip(0);
+    copy();
+
+    flip(1);
+    copy();
+
+    flip(0);
+    copy();
+
     return res;
   }
   T sum() const {
@@ -302,6 +369,13 @@ class Matrix {
   }
   static Matrix eye(size_t n) {
     return Matrix::eye(n, n);
+  }
+  static Matrix diag(const std::vector<T>& data) {
+    auto res = Matrix::zeros(data.size(), data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+      res(i, i) = data[i];
+    }
+    return res;
   }
 
  private:

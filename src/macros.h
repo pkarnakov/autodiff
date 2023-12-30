@@ -5,6 +5,15 @@
 #include <string>
 
 #define FILELINE (std::string() + __FILE__ + ":" + std::to_string(__LINE__))
+#define fassert(x)                                                \
+  do {                                                            \
+    const auto fasrt_x = (x);                                     \
+    if (!(fasrt_x)) {                                             \
+      std::stringstream fasrt_s;                                  \
+      fasrt_s << FILELINE << ": assertion failed '" << #x << "'"; \
+      throw std::runtime_error(fasrt_s.str());                    \
+    }                                                             \
+  } while (0);
 #define fassert_equal(x, y)                                           \
   do {                                                                \
     const auto fasrteq_x = (x);                                       \
