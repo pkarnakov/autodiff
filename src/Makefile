@@ -19,7 +19,7 @@ $(BUILD):
 $(BUILD)/test_dual: test_dual.cpp macros.h dual.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
-$(BUILD)/test_reverse: test_reverse.cpp macros.h reverse.h | $(BUILD)
+$(BUILD)/test_reverse: test_reverse.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 $(BUILD)/test_matrix: test_matrix.cpp macros.h matrix.h | $(BUILD)

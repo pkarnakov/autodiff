@@ -47,6 +47,10 @@ class Matrix {
   // Assignment.
   Matrix& operator=(const Matrix&) = default;
   Matrix& operator+=(const Matrix& other) {
+    if (nrow_ == 0 && ncol_ == 0) {
+      *this = other;
+      return *this;
+    }
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
@@ -55,6 +59,10 @@ class Matrix {
     return *this;
   }
   Matrix& operator-=(const Matrix& other) {
+    if (nrow_ == 0 && ncol_ == 0) {
+      *this = -other;
+      return *this;
+    }
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     for (size_t i = 0; i < data_.size(); ++i) {
@@ -269,8 +277,16 @@ class Matrix {
   static Matrix ones(size_t nrow, size_t ncol) {
     return Matrix(nrow, ncol, T(1));
   }
+  template <class U>
+  static Matrix zeros_like(const Matrix<U>& other) {
+    return Matrix(other.nrow_, other.ncol_, T(0));
+  }
+  template <class U>
+  static Matrix ones_like(const Matrix<U>& other) {
+    return Matrix(other.nrow_, other.ncol_, T(1));
+  }
   static Matrix eye(size_t nrow, size_t ncol) {
-    Matrix<T> res(nrow, ncol);
+    Matrix res(nrow, ncol);
     for (size_t i = 0; i < nrow; ++i) {
       for (size_t j = 0; j < ncol; ++j) {
         res(i, j) = (i == j ? T(1) : T(0));
@@ -291,16 +307,20 @@ class Matrix {
 
 template <class T>
 std::ostream& operator<<(std::ostream& out, const Matrix<T>& matr) {
+  out << '[';
   for (size_t i = 0; i < matr.nrow(); ++i) {
+    out << '[';
     for (size_t j = 0; j < matr.ncol(); ++j) {
       out << matr(i, j);
       if (j + 1 < matr.ncol()) {
-        out << ' ';
+        out << ", ";
       }
     }
+    out << ']';
     if (i + 1 < matr.nrow()) {
-      out << "\n";
+      out << ",";
     }
   }
+  out << ']';
   return out;
 }
