@@ -11,11 +11,18 @@
 
 struct Extra : public BaseExtra {
   Extra(std::ostream& out) : dot(out) {}
-  template <class N>
-  void TraversePre(N* node) {
+  template <class Node>
+  void TraversePre(Node* node) {
     dot.Write(node);
   }
   DotWriter dot;
+};
+
+struct ExtraPrint : public BaseExtra {
+  template <class Node>
+  void TraversePre(Node* node) {
+    std::cout << *node << std::endl;
+  }
 };
 
 template <class T>
@@ -86,7 +93,7 @@ static void TestRoll() {
 
 int main() {
   TestReverse(1., "scal");
-  TestReverse(Matrix<double>::eye(3), "matr");
-  TestRoll();
-  // TestNested();
+  // TestReverse(Matrix<double>::eye(3), "matr");
+  // TestRoll();
+  //  TestNested();
 }

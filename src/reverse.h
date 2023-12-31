@@ -35,33 +35,12 @@ class Var {
 
 struct BaseExtra {
   template <class Node>
+  static void Print(std::ostream& out, const Node* node);
+  template <class Node>
   void TraversePre(Node*) {}
   template <class Node>
   void TraversePost(Node*) {}
 };
-
-// T: type of node output value.
-// X, Y: types of node inputs.
-// E: a class implementing the same interface as BaseExtra.
-template <class T, class E>
-class Node;
-template <class T, class E>
-class NodeVar;
-template <class T, class X, class E>
-class NodeUnary;
-template <class T, class X, class Y, class E>
-class NodeBinary;
-
-// TODO: Revise without forward declaration of output functions.
-//       Consider making the tree traversal polymorphic.
-template <class T, class E>
-void Print(std::ostream&, const Node<T, E>*);
-template <class T, class E>
-void Print(std::ostream&, const NodeVar<T, E>*);
-template <class T, class X, class E>
-void Print(std::ostream&, const NodeUnary<T, X, E>*);
-template <class T, class X, class Y, class E>
-void Print(std::ostream&, const NodeBinary<T, X, Y, E>*);
 
 template <class T, class E>
 class Node {
@@ -82,10 +61,10 @@ class Node {
   virtual std::string name() const {
     return name_;
   };
-  virtual void Print(std::ostream& out) const {
-    ::Print(out, this);
-  }
   using Extra = E;
+  virtual void Print(std::ostream& out) const {
+    Extra::Print(out, this);
+  }
   virtual void TraversePre(Extra& extra) const {
     extra.TraversePre(this);
   }
@@ -114,10 +93,10 @@ class NodeVar : public Node<T, E> {
   void AppendGrad(const T& du) override {
     this->grad_ += du;
   }
-  void Print(std::ostream& out) const override {
-    ::Print(out, this);
-  }
   using Extra = E;
+  void Print(std::ostream& out) const override {
+    Extra::Print(out, this);
+  }
   void TraversePre(Extra& extra) const override {
     extra.TraversePre(this);
   }
@@ -150,10 +129,10 @@ class NodeUnary : public Node<T, E> {
     this->grad_ += du;
     x_->AppendGrad(fgrad_(x_->value(), du));
   }
-  void Print(std::ostream& out) const override {
-    ::Print(out, this);
-  }
   using Extra = E;
+  void Print(std::ostream& out) const override {
+    Extra::Print(out, this);
+  }
   void TraversePre(Extra& extra) const override {
     extra.TraversePre(this);
     x_->TraversePre(extra);
@@ -206,10 +185,10 @@ class NodeBinary : public Node<T, E> {
     x_->AppendGrad(fgradx_(x_->value(), y_->value(), du));
     y_->AppendGrad(fgrady_(x_->value(), y_->value(), du));
   }
-  void Print(std::ostream& out) const override {
-    ::Print(out, this);
-  }
   using Extra = E;
+  void Print(std::ostream& out) const override {
+    Extra::Print(out, this);
+  }
   void TraversePre(Extra& extra) const override {
     extra.TraversePre(this);
     x_->TraversePre(extra);
@@ -252,6 +231,9 @@ struct Tracer {
     return node_;
   }
   using Extra = E;
+  void Print(std::ostream& out) const {
+    node_->Print(out);
+  }
   void TraversePre(Extra& extra) const {
     return node_->TraversePre(extra);
   }
@@ -505,32 +487,6 @@ std::string GetTypeName() {
   return TypeName<T>::value;
 }
 
-template <class T, class E>
-void Print(std::ostream& out, const Node<T, E>* node) {
-  out << "Node(" << node->name() << ", " << GetTypeName<T>() << ")";
-}
-
-template <class T, class E>
-void Print(std::ostream& out, const NodeVar<T, E>* node) {
-  out << "NodeVar(" << node->var() << ")";
-}
-
-template <class T, class X, class E>
-void Print(std::ostream& out, const NodeUnary<T, X, E>* node) {
-  out << "NodeUnary(" << node->name() << "[" << node->x()->name() << "]"
-      << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << "]"
-      << ")";
-}
-
-template <class T, class X, class Y, class E>
-void Print(std::ostream& out, const NodeBinary<T, X, Y, E>* node) {
-  out << "NodeBinary(" << node->name() << "[" << node->x()->name() << ","
-      << node->y()->name() << "]"
-      << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << ","
-      << GetTypeName<T>() << "]"
-      << ")";
-}
-
 template <class T>
 std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
   out << "Var(" << var.value();
@@ -556,32 +512,35 @@ std::ostream& operator<<(std::ostream& out, const Tracer<T, E>& tracer) {
   return out;
 }
 
-template <class T, class E>
-void PrintTree(std::ostream& out, const Tracer<T, E> tracer) {
-  PrintTree(out, tracer.node().get());
-}
+// Writes nodes in plain text.
+struct PrintImpl {
+  template <class T, class E>
+  static void Print(std::ostream& out, const Node<T, E>* node) {
+    out << "Node(" << node->name() << ", " << GetTypeName<T>() << ")";
+  }
+  template <class T, class E>
+  static void Print(std::ostream& out, const NodeVar<T, E>* node) {
+    out << "NodeVar(" << node->var() << ")";
+  }
+  template <class T, class X, class E>
+  static void Print(std::ostream& out, const NodeUnary<T, X, E>* node) {
+    out << "NodeUnary(" << node->name() << "[" << node->x()->name() << "]"
+        << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << "]"
+        << ")";
+  }
+  template <class T, class X, class Y, class E>
+  static void Print(std::ostream& out, const NodeBinary<T, X, Y, E>* node) {
+    out << "NodeBinary(" << node->name() << "[" << node->x()->name() << ","
+        << node->y()->name() << "]"
+        << ", " << GetTypeName<T>() << "[" << GetTypeName<T>() << ","
+        << GetTypeName<T>() << "]"
+        << ")";
+  }
+};
 
-template <class T, class E>
-void PrintTree(std::ostream& out, const Node<T, E>* node, int depth = 0) {
-  out << std::string(depth * 4, '.');
-  {
-    if (auto ptr = dynamic_cast<const NodeVar<T, E>*>(node)) {
-      out << *ptr << '\n';
-    }
-  }
-  {
-    if (auto ptr = dynamic_cast<const NodeUnary<T, T, E>*>(node)) {
-      out << *ptr << '\n';
-      PrintTree(out, ptr->x().get(), depth + 1);
-    }
-  }
-  {
-    if (auto ptr = dynamic_cast<const NodeBinary<T, T, T, E>*>(node)) {
-      out << *ptr << '\n';
-      PrintTree(out, ptr->x().get(), depth + 1);
-      PrintTree(out, ptr->y().get(), depth + 1);
-    }
-  }
+template <class Node>
+void BaseExtra::Print(std::ostream& out, const Node* node) {
+  PrintImpl::Print(out, node);
 }
 
 // Writes the graph in DOT format.
