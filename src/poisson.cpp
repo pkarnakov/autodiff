@@ -66,7 +66,6 @@ static void RunPoisson(Config config) {
   dump_graph(loss, "poisson.gv");
 
   auto grad = [&u](auto& e) {
-    e.ClearGrad();
     e.UpdateGrad();
     return u.grad();
   };

@@ -66,14 +66,19 @@ void Print(std::ostream&, const NodeBinary<T, X, Y, E>*);
 template <class T, class E>
 class Node {
  public:
-  Node(const std::string& name = "") : name_(name), grad_(T()) {}
+  Node(const std::string& name = "") : name_(name) {}
   virtual ~Node() = default;
-  virtual T value() const = 0;
+  virtual const T& value() const {
+    return value_;
+  }
   virtual const T& grad() const {
     return grad_;
   }
-  virtual void ClearGrad() = 0;
-  virtual void UpdateGrad(const T& du) = 0;
+  virtual void UpdateValue() = 0;
+  virtual void ClearGrad() {
+    grad_ = T();
+  }
+  virtual void AppendGrad(const T&) = 0;
   virtual std::string name() const {
     return name_;
   };
@@ -90,6 +95,7 @@ class Node {
 
  protected:
   std::string name_;
+  T value_;
   T grad_;
 };
 
@@ -98,17 +104,14 @@ class NodeVar : public Node<T, E> {
  public:
   NodeVar(const Var<T>& var, std::string name = "")
       : Node<T, E>(name), var_(var) {}
-
-  T value() const override {
+  const T& value() const override {
     return var_.value();
   }
   const Var<T>& var() const {
     return var_;
   }
-  void ClearGrad() override {
-    this->grad_ = T();
-  }
-  void UpdateGrad(const T& du) override {
+  void UpdateValue() override {}
+  void AppendGrad(const T& du) override {
     this->grad_ += du;
   }
   void Print(std::ostream& out) const override {
@@ -132,19 +135,20 @@ class NodeUnary : public Node<T, E> {
             std::function<X(const X&, const T&)> fgrad, std::string name = "")
       : Node<T, E>(name), x_(x), fvalue_(fvalue), fgrad_(fgrad) {}
 
-  T value() const override {
-    return fvalue_(x_->value());
+  const std::shared_ptr<Node<X, E>>& x() const {
+    return x_;
+  }
+  void UpdateValue() override {
+    x_->UpdateValue();
+    this->value_ = fvalue_(x_->value());
   }
   void ClearGrad() override {
     this->grad_ = T();
     x_->ClearGrad();
   }
-  void UpdateGrad(const T& du) override {
+  void AppendGrad(const T& du) override {
     this->grad_ += du;
-    x_->UpdateGrad(fgrad_(x_->value(), du));
-  }
-  const std::shared_ptr<Node<X, E>>& x() const {
-    return x_;
+    x_->AppendGrad(fgrad_(x_->value(), du));
   }
   void Print(std::ostream& out) const override {
     ::Print(out, this);
@@ -159,6 +163,7 @@ class NodeUnary : public Node<T, E> {
     extra.TraversePost(this);
   }
 
+ private:
   std::shared_ptr<Node<X, E>> x_;
   std::function<T(const X&)> fvalue_;
   std::function<X(const X&, const T&)> fgrad_;
@@ -179,24 +184,27 @@ class NodeBinary : public Node<T, E> {
         fgradx_(fgradx),
         fgrady_(fgrady) {}
 
-  T value() const override {
-    return fvalue_(x_->value(), y_->value());
+  const std::shared_ptr<Node<T, E>>& x() const {
+    return x_;
+  }
+  const std::shared_ptr<Node<T, E>>& y() const {
+    return y_;
+  }
+
+  void UpdateValue() override {
+    x_->UpdateValue();
+    y_->UpdateValue();
+    this->value_ = fvalue_(x_->value(), y_->value());
   }
   void ClearGrad() override {
     this->grad_ = T();
     x_->ClearGrad();
     y_->ClearGrad();
   }
-  void UpdateGrad(const T& du) override {
+  void AppendGrad(const T& du) override {
     this->grad_ += du;
-    x_->UpdateGrad(fgradx_(x_->value(), y_->value(), du));
-    y_->UpdateGrad(fgrady_(x_->value(), y_->value(), du));
-  }
-  const std::shared_ptr<Node<T, E>>& x() const {
-    return x_;
-  }
-  const std::shared_ptr<Node<T, E>>& y() const {
-    return y_;
+    x_->AppendGrad(fgradx_(x_->value(), y_->value(), du));
+    y_->AppendGrad(fgrady_(x_->value(), y_->value(), du));
   }
   void Print(std::ostream& out) const override {
     ::Print(out, this);
@@ -213,6 +221,7 @@ class NodeBinary : public Node<T, E> {
     extra.TraversePost(this);
   }
 
+ private:
   std::shared_ptr<Node<X, E>> x_;
   std::shared_ptr<Node<Y, E>> y_;
   std::function<T(const X&, const Y&)> fvalue_;
@@ -225,20 +234,16 @@ struct Tracer {
   Tracer(std::shared_ptr<Node<T, E>> node) : node_(node) {}
   Tracer(const Var<T>& var)
       : node_(std::make_shared<NodeVar<T, E>>(var, var.name())) {}
-  T value() const {
+  const T& value() const {
     return node_->value();
   }
   const T& grad() const {
     return node_->grad();
   }
-  void ClearGrad() const {
-    node_->ClearGrad();
-  }
-  void UpdateGrad(const T& du) const {
-    node_->UpdateGrad(du);
-  }
   void UpdateGrad() const {
-    node_->UpdateGrad(T(1));
+    node_->UpdateValue();
+    node_->ClearGrad();
+    node_->AppendGrad(T(1));
   }
   std::string name() const {
     return node_->name();
@@ -359,7 +364,9 @@ template <class T, class E>
 Tracer<T, E> sum(const Tracer<Matrix<T>, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
       tr_x.node(), [](const Matrix<T>& x) { return x.sum(); },
-      [](const Matrix<T>& x, T du) { return du * Matrix<T>::ones_like(x); },
+      [](const Matrix<T>& x, const T& du) {
+        return du * Matrix<T>::ones_like(x);
+      },
       "sum")};
 }
 
@@ -367,7 +374,7 @@ template <class T, class E>
 Tracer<T, E> sum(const Tracer<T, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return x; },
-      [](const T&, T du) { return du * T(1); }, "sum")};
+      [](const T&, const T& du) { return du * T(1); }, "sum")};
 }
 
 template <class T, class E>

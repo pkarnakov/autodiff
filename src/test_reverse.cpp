@@ -29,7 +29,6 @@ static void TestReverse(const T& eye, std::string suff) {
   auto x = MakeTracer<Extra>(var_x);
   auto y = MakeTracer<Extra>(var_y);
   auto eval = [&](auto& e, std::string path) {
-    e.ClearGrad();
     e.UpdateGrad();
     PE(e.value());
     PE(x.grad());
@@ -78,7 +77,6 @@ static void TestRoll() {
   PEN(Str(matr));
   auto x = MakeTracer<Extra>(var_x);
   auto grad = [&](auto e) {
-    e.ClearGrad();
     e.UpdateGrad();
     return x.grad();
   };
