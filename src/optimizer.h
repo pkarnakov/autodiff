@@ -21,7 +21,7 @@ class Adam {
     Scal epsilon = 1e-7;
   };
   static void Run(const Config& config, const std::vector<Matrix<Scal>*>& vars,
-                  const std::vector<Matrix<Scal>*>& grads,
+                  const std::vector<const Matrix<Scal>*>& grads,
                   std::function<void()> update_grads,
                   std::function<void(int)> callback) {
     fassert_equal(vars.size(), grads.size());

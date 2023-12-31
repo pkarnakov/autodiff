@@ -378,6 +378,23 @@ Tracer<T, E> sum(const Tracer<T, E>& tr_x) {
 }
 
 template <class T, class E>
+Tracer<T, E> mean(const Tracer<Matrix<T>, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
+      tr_x.node(), [](const Matrix<T>& x) { return x.mean(); },
+      [](const Matrix<T>& x, const T& du) {
+        return du * Matrix<T>::ones_like(x) / x.size();
+      },
+      "mean")};
+}
+
+template <class T, class E>
+Tracer<T, E> mean(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [](const T& x) { return x; },
+      [](const T&, const T& du) { return du * T(1); }, "mean")};
+}
+
+template <class T, class E>
 Tracer<T, E> sin(const Tracer<T, E>& tr_x) {
   using std::cos;
   using std::sin;

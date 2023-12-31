@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iosfwd>
+#include <numeric>
 #include <vector>
 
 #include "macros.h"
@@ -244,14 +245,16 @@ class Matrix {
     return res;
   }
   T sum() const {
-    T res(0);
-    for (size_t i = 0; i < data_.size(); ++i) {
-      res += data_[i];
-    }
-    return res;
+    return std::accumulate(data_.begin(), data_.end(), T(0));
   }
   T mean() const {
-    return sum() / (nrow_ * ncol_);
+    return sum() / size();
+  }
+  T min() const {
+    return *std::min_element(data_.begin(), data_.end());
+  }
+  T max() const {
+    return *std::max_element(data_.begin(), data_.end());
   }
   template <class F>
   auto apply(F func) const -> Matrix<decltype(func(T()))> const {
