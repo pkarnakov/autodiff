@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import numpy as np
 import argparse
+import numpy as np
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -20,13 +19,13 @@ def plot(path, u, vmin=None, vmax=None, cmap="Oranges"):
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     fig.add_axes(ax)
-    ax.imshow(u.T, interpolation='nearest', cmap=args.cmap, vmin=vmin,
-              vmax=vmax, extent=extent, origin='lower', aspect='equal')
+    ax.imshow(u.T, interpolation='nearest', cmap=cmap, vmin=vmin, vmax=vmax,
+              extent=extent, origin='lower', aspect='equal')
     fig.savefig(path, pad_inches=0, bbox_inches='tight', dpi=1)
     plt.close(fig)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('input', help="Text file with 2D array")
     parser.add_argument('output', help="Output image")
@@ -37,3 +36,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     u = np.loadtxt(args.input)
     plot(args.output, u, vmin=args.vmin, vmax=args.vmax, cmap=args.cmap)
+
+
+if __name__ == "__main__":
+    main()
