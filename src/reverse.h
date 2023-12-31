@@ -69,7 +69,7 @@ class Node {
   Node(const std::string& name = "") : name_(name), grad_(T()) {}
   virtual ~Node() = default;
   virtual T value() const = 0;
-  virtual T grad() const {
+  virtual const T& grad() const {
     return grad_;
   }
   virtual void ClearGrad() = 0;
@@ -228,7 +228,7 @@ struct Tracer {
   T value() const {
     return node_->value();
   }
-  T grad() const {
+  const T& grad() const {
     return node_->grad();
   }
   void ClearGrad() const {

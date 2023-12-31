@@ -325,6 +325,16 @@ class Matrix {
   friend Matrix sqr(const Matrix& matr) {
     return matr.apply([](T x) { return sqr(x); });
   }
+  friend Matrix sqrt(const Matrix& matr) {
+    using std::sqrt;
+    return matr.apply([](T x) { return sqrt(x); });
+  }
+  friend T sum(const Matrix& matr) {
+    return matr.sum();
+  }
+  friend T mean(const Matrix& matr) {
+    return matr.mean();
+  }
   friend Matrix operator+(const T& a, const Matrix& matr) {
     Matrix res(matr.nrow_, matr.ncol_);
     for (size_t i = 0; i < matr.data_.size(); ++i) {

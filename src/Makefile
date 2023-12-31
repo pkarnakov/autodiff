@@ -6,6 +6,7 @@ all: \
 	$(BUILD)/test_dual \
 	$(BUILD)/test_reverse \
 	$(BUILD)/test_matrix \
+	$(BUILD)/test_optimizer \
 	$(BUILD)/poisson \
 
 run_poisson: $(BUILD)/poisson
@@ -33,6 +34,9 @@ $(BUILD)/test_reverse: test_reverse.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 $(BUILD)/test_matrix: test_matrix.cpp macros.h matrix.h | $(BUILD)
+	$(CXX) $(CXXFLAGS) $< -o "$@"
+
+$(BUILD)/test_optimizer: test_optimizer.cpp macros.h optimizer.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 $(BUILD)/poisson: poisson.cpp macros.h reverse.h matrix.h | $(BUILD)
