@@ -34,3 +34,9 @@ make run_poisson
 |    |    |    |
 :---:|:--:|:---:
 <img src="https://pkarnakov.github.io/autodiff/media/poisson/poisson.svg" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson/uref.png" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson/u_00010.png" height="200px">
+
+## Poisson multigrid
+
+|    |    |    |
+:---:|:--:|:---:
+<img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/poisson.svg" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/uref.png" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/u_00010.png" height="200px">
