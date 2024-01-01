@@ -25,7 +25,8 @@ struct Config {
   int Nx = 64;
   int epochs = 10000;
   int frames = 10;
-  double lr = 1e-2;
+  int max_nlvl = 4;
+  double lr = 1e-3;
   double uref_k = 2;
 };
 
@@ -65,10 +66,34 @@ static void RunPoisson(Config config) {
            sqr(hx);
   };
 
+  using M = Matrix<Scal>;
   auto rhs = eval_lapl(uref);
-  Var var_u(Matrix<Scal>::zeros_like(rhs), "u");
-  auto u = MakeTracer<Extra>(var_u);
+  std::vector<std::unique_ptr<Var<M>>> var_uu;
+  std::vector<Tracer<M, Extra>> uu;
+  int nx = Nx;
+  // Create variables for multigrid levels.
+  for (int i = 0; i < config.max_nlvl; ++i) {
+    const auto name = "u" + std::to_string(i + 1);
+    var_uu.emplace_back(std::make_unique<Var<M>>(M::zeros(nx), name));
+    uu.emplace_back(*var_uu.back());
+    nx /= 2;
+    if (nx <= 4) {
+      break;
+    }
+  }
+  std::cout << "multigrid levels: ";
+  for (auto& var_u : var_uu) {
+    auto& m = var_u->value();
+    std::cout << "(" << m.nrow() << "," << m.ncol() << "), ";
+  }
+  std::cout << std::endl;
+  auto u = uu.back();
+  for (size_t i = uu.size() - 1; i > 0;) {
+    --i;
+    u = interpolate(u) + uu[i];
+  }
   auto loss = mean(sqr(eval_lapl(u) - rhs));
+  loss.UpdateValue();  // Required before calling optimizer.
 
   dump_graph(loss, "poisson.gv");
   dump_field(uref, "uref.dat");
@@ -88,27 +113,30 @@ static void RunPoisson(Config config) {
       printf(
           "epoch=%5d, loss=%8.6e, throughput=%.3fM cells/s"
           ", u:[%.3f,%.3f], \n",
-          epoch, loss.value(), throughput, var_u.value().min(),
-          var_u.value().max());
+          epoch, loss.value(), throughput, u.value().min(), u.value().max());
       std::string path = [&]() {
         std::stringstream buf;
         buf << "u_" << std::setfill('0') << std::setw(5) << frame << ".dat";
         return buf.str();
       }();
-      dump_field(var_u.value(), path);
+      dump_field(u.value(), path);
       ++frame;
     }
   };
 
-  auto update_grads = [&]() {  //
-    loss.UpdateGrad();
-  };
+  auto update_grads = [&]() { loss.UpdateGrad(); };
 
   using Adam = optimizer::Adam<Scal>;
   typename Adam::Config adam_config;
   adam_config.epochs = config.epochs;
   adam_config.lr = config.lr;
-  Adam::Run(adam_config, {&var_u.value()}, {&u.grad()}, update_grads, callback);
+  std::vector<M*> vars;
+  std::vector<const M*> grads;
+  for (size_t i = 0; i < var_uu.size(); ++i) {
+    vars.push_back(&var_uu[i]->value());
+    grads.push_back(&uu[i].grad());
+  }
+  Adam::Run(adam_config, vars, grads, update_grads, callback);
 }
 
 int main() {

@@ -209,7 +209,8 @@ class NodeBinary : public Node<T, E> {
 };
 
 template <class T, class E>
-struct Tracer {
+class Tracer {
+ public:
   Tracer(std::shared_ptr<Node<T, E>> node) : node_(node) {}
   Tracer(const Var<T>& var)
       : node_(std::make_shared<NodeVar<T, E>>(var, var.name())) {}
@@ -218,6 +219,9 @@ struct Tracer {
   }
   const T& grad() const {
     return node_->grad();
+  }
+  void UpdateValue() const {
+    node_->UpdateValue();
   }
   void UpdateGrad() const {
     node_->UpdateValue();
