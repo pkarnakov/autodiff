@@ -41,7 +41,21 @@ static void TestRoll() {
   PEN(Str(matr.roll(-1, -1)));
 }
 
+template <class T = double>
+static void TestMultigrid() {
+  std::cout << '\n' << __func__ << std::endl;
+  using M = Matrix<T>;
+  auto matr = M::iota(8);
+  auto Str = [](auto m) { return MatrixToStr(m, 4); };
+  PEN(Str(matr));
+  PEN(Str(matr.restrict()));
+  PEN(Str(matr.restrict().interpolate()));
+  PEN(Str(M::iota(1, 4).interpolate()));
+  PEN(Str(M::iota(4, 1).interpolate()));
+}
+
 int main() {
   TestMatrix();
   TestRoll();
+  TestMultigrid();
 }
