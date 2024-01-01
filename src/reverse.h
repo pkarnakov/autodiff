@@ -286,6 +286,11 @@ class Tracer {
       node->UpdateGrad();
     }
   }
+  void UpdateGrad() {
+    const auto order = GetFowardOrder();
+    UpdateGrad(order);
+    ClearVisited(order);
+  }
   void Print(std::ostream& out) const {
     node_->Print(out);
   }
@@ -306,6 +311,13 @@ template <class Extra>
 void Traverse(const NodeOrder<Extra>& order, Extra& extra) {
   for (auto* node : order) {
     node->Visit(extra);
+  }
+}
+
+template <class Extra>
+void ClearVisited(const NodeOrder<Extra>& order) {
+  for (auto* node : order) {
+    node->set_visited(false);
   }
 }
 

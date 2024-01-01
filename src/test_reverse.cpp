@@ -12,7 +12,7 @@
 struct Extra : public BaseExtra {
   Extra(std::ostream& out) : dot(out) {}
   template <class Node>
-  void TraversePre(Node* node) {
+  void Visit(Node* node) {
     dot.Write(node);
   }
   DotWriter dot;
@@ -20,7 +20,7 @@ struct Extra : public BaseExtra {
 
 struct ExtraPrint : public BaseExtra {
   template <class Node>
-  void TraversePre(Node* node) {
+  void Visit(Node* node) {
     std::cout << *node << std::endl;
   }
 };
@@ -36,42 +36,21 @@ static void TestReverse(const T& eye, std::string suff) {
   auto x = MakeTracer<Extra>(var_x);
   auto y = MakeTracer<Extra>(var_y);
   auto eval = [&](auto& e, std::string path) {
-    e.UpdateGrad();
+    const auto order = e.GetFowardOrder();
+    e.UpdateGrad(order);
     PE(e.value());
     PE(x.grad());
     PE(y.grad());
     std::cout << path << std::endl;
     std::ofstream fout(path);
     Extra extra(fout);
-    e.TraversePre(extra);
+    Traverse(order, extra);
+    ClearVisited(order);
   };
   auto e1 = sum(sin(x) * cos(y) + cos(x) * sin(y));
   eval(e1, "reverse_" + suff + "1.gv");
   auto e2 = sum(sin(x + y));
   eval(e2, "reverse_" + suff + "2.gv");
-}
-
-template <class T = double>
-static void TestNested() {
-  // TODO: Implement.
-  std::cout << '\n' << __func__ << std::endl;
-  Var<T> var_x(0, "x");
-  Var<T> var_y(0, "y");
-  auto x = MakeTracer<Extra>(var_x);
-  auto y = MakeTracer<Extra>(var_y);
-  Var var_tx(x, "tx");
-  Var var_ty(y, "ty");
-  auto tx = MakeTracer<Extra>(var_tx);
-  auto ty = MakeTracer<Extra>(var_ty);
-  auto e = sin(tx) * cos(ty) + cos(tx) * sin(ty);
-  auto eval = [&](auto& tracer, std::string path) {
-    std::cout << path << std::endl;
-    std::ofstream fout(path);
-    Extra extra(fout);
-    tracer.TraversePre(extra);
-  };
-  // eval(e.value(), "nested_value.gv");
-  // eval(e.grad(), "nested_grad.gv");
 }
 
 template <class T = double>
@@ -115,5 +94,4 @@ int main() {
   TestReverse(Matrix<double>::eye(3), "matr");
   TestRoll();
   TestMultigrid();
-  // TestNested();
 }
