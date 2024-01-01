@@ -15,7 +15,7 @@
 struct Extra : public BaseExtra {
   Extra(std::ostream& out) : dot(out) {}
   template <class N>
-  void TraversePre(N* node) {
+  void Visit(N* node) {
     dot.Write(node);
   }
   DotWriter dot;
@@ -33,10 +33,10 @@ struct Config {
 template <class Scal = double>
 static void RunPoisson(Config config) {
   // Writes graph to DOT file.
-  auto dump_graph = [](auto& e, std::string path) {
+  auto dump_graph = [](const auto& order, std::string path) {
     std::ofstream fout(path);
     Extra extra(fout);
-    e.TraversePre(extra);
+    Traverse(order, extra);
   };
   // Writes field to DAT file.
   auto dump_field = [](auto u, auto path) {
@@ -84,7 +84,7 @@ static void RunPoisson(Config config) {
   std::cout << "multigrid levels: ";
   for (auto& var_u : var_uu) {
     auto& m = var_u->value();
-    std::cout << "(" << m.nrow() << "," << m.ncol() << "), ";
+    std::cout << "(" << m.nrow() << "," << m.ncol() << ") ";
   }
   std::cout << std::endl;
   auto u = uu.back();
@@ -93,9 +93,9 @@ static void RunPoisson(Config config) {
     u = interpolate(u) + uu[i];
   }
   auto loss = mean(sqr(eval_lapl(u) - rhs));
-  loss.UpdateValue();  // Required before calling optimizer.
-
-  dump_graph(loss, "poisson.gv");
+  const NodeOrder<Extra> order = loss.GetFowardOrder();
+  dump_graph(order, "poisson.gv");
+  loss.UpdateValue(order);  // Required before calling the optimizer.
   dump_field(uref, "uref.dat");
 
   auto time_prev = std::chrono::steady_clock::now();
@@ -124,7 +124,7 @@ static void RunPoisson(Config config) {
     }
   };
 
-  auto update_grads = [&]() { loss.UpdateGrad(); };
+  auto update_grads = [&]() { loss.UpdateGrad(order); };
 
   using Adam = optimizer::Adam<Scal>;
   typename Adam::Config adam_config;

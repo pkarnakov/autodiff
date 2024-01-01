@@ -37,61 +37,83 @@ struct BaseExtra {
   template <class Node>
   static void Print(std::ostream& out, const Node* node);
   template <class Node>
-  void TraversePre(Node*) {}
-  template <class Node>
-  void TraversePost(Node*) {}
+  void Visit(Node*) {}
+};
+
+template <class E>
+class GenericNode;
+
+template <class E>
+using NodeOrder = std::vector<GenericNode<E>*>;
+
+template <class E>
+class GenericNode {
+ public:
+  using Extra = E;
+
+  virtual ~GenericNode() = default;
+  bool visited() const {
+    return visited_;
+  }
+  void set_visited(bool visited) {
+    visited_ = visited;
+  }
+
+  virtual void UpdateValue() = 0;
+  virtual void UpdateGrad() = 0;
+  virtual void ClearGrad() = 0;
+  virtual void BuildForwardOrder(NodeOrder<E>& order) = 0;
+  virtual void Print(std::ostream& out) const;
+  virtual void Visit(Extra& extra) const = 0;
+
+ protected:
+  bool visited_ = false;
 };
 
 template <class T, class E>
-class Node {
+class Node : public GenericNode<E> {
  public:
+  using Extra = E;
+
   Node(const std::string& name = "") : name_(name) {}
-  virtual ~Node() = default;
+  virtual std::string name() const {
+    return name_;
+  };
   virtual const T& value() const {
     return value_;
   }
   virtual const T& grad() const {
     return grad_;
   }
-  // TODO: Revise updates without age.
-  int age() const {
-    return age_;
-  }
-  void set_age(int age) {
-    age_ = age;
-  }
-  void inc_age() {
-    ++age_;
-  }
-  virtual void UpdateValue() = 0;
-  virtual void ClearGrad() {
+
+  void UpdateValue() override = 0;
+  void UpdateGrad() override = 0;
+  void ClearGrad() override {
     grad_ = T();
   }
-  virtual void AppendGrad(const T&) = 0;
-  virtual std::string name() const {
-    return name_;
-  };
-  using Extra = E;
-  virtual void Print(std::ostream& out) const {
+  virtual void AddGrad(const T& add) {
+    grad_ += add;
+  }
+
+  void BuildForwardOrder(NodeOrder<E>& order) override = 0;
+  void Print(std::ostream& out) const override {
     Extra::Print(out, this);
   }
-  virtual void TraversePre(Extra& extra) const {
-    extra.TraversePre(this);
-  }
-  virtual void TraversePost(Extra& extra) const {
-    extra.TraversePost(this);
+  void Visit(Extra& extra) const override {
+    extra.Visit(this);
   }
 
  protected:
   std::string name_;
   T value_;
   T grad_;
-  int age_ = 0;
 };
 
 template <class T, class E>
 class NodeVar : public Node<T, E> {
  public:
+  using Extra = E;
+
   NodeVar(const Var<T>& var, std::string name = "")
       : Node<T, E>(name), var_(var) {}
   const T& value() const override {
@@ -100,27 +122,28 @@ class NodeVar : public Node<T, E> {
   const Var<T>& var() const {
     return var_;
   }
+
   void UpdateValue() override {}
-  void AppendGrad(const T& du) override {
-    this->grad_ += du;
+  void UpdateGrad() override {}
+
+  void BuildForwardOrder(NodeOrder<E>& order) override {
+    this->set_visited(true);
+    order.push_back(this);
   }
-  using Extra = E;
   void Print(std::ostream& out) const override {
     Extra::Print(out, this);
   }
-  void TraversePre(Extra& extra) const override {
-    extra.TraversePre(this);
+  void Visit(Extra& extra) const override {
+    extra.Visit(this);
   }
-  void TraversePost(Extra& extra) const override {
-    extra.TraversePost(this);
-  }
-
   const Var<T>& var_;
 };
 
 template <class T, class X, class E>
 class NodeUnary : public Node<T, E> {
  public:
+  using Extra = E;
+
   NodeUnary(std::shared_ptr<Node<X, E>> x, std::function<T(const X&)> fvalue,
             std::function<X(const X&, const T&)> fgrad, std::string name = "")
       : Node<T, E>(name), x_(x), fvalue_(fvalue), fgrad_(fgrad) {}
@@ -129,34 +152,23 @@ class NodeUnary : public Node<T, E> {
     return x_;
   }
   void UpdateValue() override {
-    if (x_->age() < this->age()) {
-      x_->set_age(this->age());
-      x_->UpdateValue();
-    }
     this->value_ = fvalue_(x_->value());
   }
-  void ClearGrad() override {
-    this->grad_ = T();
-    x_->ClearGrad();
+  void UpdateGrad() override {
+    x_->AddGrad(fgrad_(x_->value(), this->grad_));
   }
-  void AppendGrad(const T& du) override {
-    this->grad_ += du;
-    x_->AppendGrad(fgrad_(x_->value(), du));
+  void BuildForwardOrder(NodeOrder<E>& order) override {
+    this->set_visited(true);
+    if (!x_->visited()) {
+      x_->BuildForwardOrder(order);
+    }
+    order.push_back(this);
   }
-  using Extra = E;
   void Print(std::ostream& out) const override {
     Extra::Print(out, this);
   }
-  void TraversePre(Extra& extra) const override {
-    extra.TraversePre(this);
-    if (x_->age() < this->age()) {
-      x_->set_age(this->age());
-      x_->TraversePre(extra);
-    }
-  }
-  void TraversePost(Extra& extra) const override {
-    x_->TraversePost(extra);
-    extra.TraversePost(this);
+  void Visit(Extra& extra) const override {
+    extra.Visit(this);
   }
 
  private:
@@ -168,6 +180,8 @@ class NodeUnary : public Node<T, E> {
 template <class T, class X, class Y, class E>
 class NodeBinary : public Node<T, E> {
  public:
+  using Extra = E;
+
   NodeBinary(std::shared_ptr<Node<X, E>> x, std::shared_ptr<Node<Y, E>> y,
              std::function<T(const X&, const Y&)> fvalue,
              std::function<X(const X&, const Y&, const T&)> fgradx,
@@ -188,45 +202,27 @@ class NodeBinary : public Node<T, E> {
   }
 
   void UpdateValue() override {
-    if (x_->age() < this->age()) {
-      x_->set_age(this->age());
-      x_->UpdateValue();
-    }
-    if (y_->age() < this->age()) {
-      y_->set_age(this->age());
-      y_->UpdateValue();
-    }
     this->value_ = fvalue_(x_->value(), y_->value());
   }
-  void ClearGrad() override {
-    this->grad_ = T();
-    x_->ClearGrad();
-    y_->ClearGrad();
+  void UpdateGrad() override {
+    x_->AddGrad(fgradx_(x_->value(), y_->value(), this->grad_));
+    y_->AddGrad(fgrady_(x_->value(), y_->value(), this->grad_));
   }
-  void AppendGrad(const T& du) override {
-    this->grad_ += du;
-    x_->AppendGrad(fgradx_(x_->value(), y_->value(), du));
-    y_->AppendGrad(fgrady_(x_->value(), y_->value(), du));
+  void BuildForwardOrder(NodeOrder<E>& order) override {
+    this->set_visited(true);
+    if (!x_->visited()) {
+      x_->BuildForwardOrder(order);
+    }
+    if (!y_->visited()) {
+      y_->BuildForwardOrder(order);
+    }
+    order.push_back(this);
   }
-  using Extra = E;
   void Print(std::ostream& out) const override {
     Extra::Print(out, this);
   }
-  void TraversePre(Extra& extra) const override {
-    extra.TraversePre(this);
-    if (x_->age() < this->age()) {
-      x_->set_age(this->age());
-      x_->TraversePre(extra);
-    }
-    if (y_->age() < this->age()) {
-      y_->set_age(this->age());
-      y_->TraversePre(extra);
-    }
-  }
-  void TraversePost(Extra& extra) const override {
-    x_->TraversePost(extra);
-    y_->TraversePost(extra);
-    extra.TraversePost(this);
+  void Visit(Extra& extra) const override {
+    extra.Visit(this);
   }
 
  private:
@@ -240,6 +236,8 @@ class NodeBinary : public Node<T, E> {
 template <class T, class E>
 class Tracer {
  public:
+  using Extra = E;
+
   Tracer(std::shared_ptr<Node<T, E>> node) : node_(node) {}
   Tracer(const Var<T>& var)
       : node_(std::make_shared<NodeVar<T, E>>(var, var.name())) {}
@@ -249,14 +247,11 @@ class Tracer {
   const T& grad() const {
     return node_->grad();
   }
-  void UpdateValue() const {
-    node_->inc_age();
-    node_->UpdateValue();
-  }
-  void UpdateGrad() const {
-    UpdateValue();
-    node_->ClearGrad();
-    node_->AppendGrad(T(1));
+  NodeOrder<E> GetFowardOrder() const {
+    fassert(!node_->visited());
+    NodeOrder<E> order;
+    node_->BuildForwardOrder(order);
+    return order;
   }
   std::string name() const {
     return node_->name();
@@ -264,17 +259,38 @@ class Tracer {
   const std::shared_ptr<Node<T, E>>& node() const {
     return node_;
   }
-  using Extra = E;
+  void UpdateValue(const NodeOrder<Extra>& forward_order) {
+    // Check that called from the root node (e.g. scalar loss).
+    fassert_equal(node_.get(), forward_order.back());
+    for (auto* node : forward_order) {
+      node->UpdateValue();
+    }
+  }
+  void UpdateGrad(const NodeOrder<Extra>& forward_order,
+                  bool update_value = true) {
+    if (forward_order.empty()) {
+      return;
+    }
+    // Check that called from the root node (e.g. scalar loss).
+    fassert_equal(node_.get(), forward_order.back());
+    const NodeOrder<Extra> reverse_order(forward_order.rbegin(),
+                                         forward_order.rend());
+    if (update_value) {
+      UpdateValue(forward_order);
+    }
+    for (auto* node : reverse_order) {
+      node->ClearGrad();
+    }
+    node_->AddGrad(T(1));
+    for (auto* node : reverse_order) {
+      node->UpdateGrad();
+    }
+  }
   void Print(std::ostream& out) const {
     node_->Print(out);
   }
-  void TraversePre(Extra& extra) const {
-    node_->inc_age();
-    return node_->TraversePre(extra);
-  }
-  void TraversePost(Extra& extra) const {
-    node_->inc_age();
-    return node_->TraversePost(extra);
+  void Visit(Extra& extra) const {
+    return node_->Visit(extra);
   }
 
  private:
@@ -284,6 +300,13 @@ class Tracer {
 template <class E = BaseExtra, class T>
 Tracer<T, E> MakeTracer(const Var<T>& var) {
   return Tracer<T, E>(var);
+}
+
+template <class Extra>
+void Traverse(const NodeOrder<Extra>& order, Extra& extra) {
+  for (auto* node : order) {
+    node->Visit(extra);
+  }
 }
 
 ////////////////////////////////////////
@@ -539,8 +562,13 @@ std::string GetTypeName() {
 
 template <class T>
 std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
-  out << "Var(" << var.value();
-  out << ", " << GetTypeName<T>();
+  out << "Var(";
+  const auto stype = GetTypeName<T>();
+  // TODO: Revise with constexpr.
+  if (stype == "float" || stype == "double" || stype == "int") {
+    out << var.value() << ", ";
+  }
+  out << GetTypeName<T>();
   if (!var.name().empty()) {
     out << ", \"" << var.name() << "\"";
   }
@@ -548,8 +576,8 @@ std::ostream& operator<<(std::ostream& out, const Var<T>& var) {
   return out;
 }
 
-template <class T, class E>
-std::ostream& operator<<(std::ostream& out, const Node<T, E>& node) {
+template <class E>
+std::ostream& operator<<(std::ostream& out, const GenericNode<E>& node) {
   node.Print(out);
   return out;
 }
