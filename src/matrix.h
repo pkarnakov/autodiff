@@ -244,6 +244,7 @@ class Matrix {
 
     return res;
   }
+  // Restricts array to the next coarser level.
   Matrix restrict() const {
     fassert(nrow_ % 2 == 0);
     fassert(ncol_ % 2 == 0);
@@ -261,53 +262,119 @@ class Matrix {
     }
     return res;
   }
-  Matrix interpolate() const {
+  // Adjoint of restrict().
+  Matrix restrict_adjoint() const {
     Matrix res(nrow_ * 2, ncol_ * 2);
-    auto& u = *this;
-    auto interp = [&](size_t i, size_t ip, size_t j, size_t jp, T dx, T dy) {
+    for (size_t i = 0; i < nrow_; ++i) {
+      for (size_t j = 0; j < ncol_; ++j) {
+        for (int di = 0; di < 2; ++di) {
+          for (int dj = 0; dj < 2; ++dj) {
+            res(2 * i + di, 2 * j + dj) = (*this)(i, j) * 0.25;
+          }
+        }
+      }
+    }
+    return res;
+  }
+  // Interpolates array to the next finer level.
+  Matrix interpolate() const {
+    const Matrix& u = *this;
+    Matrix ufine(u.nrow_ * 2, u.ncol_ * 2);
+    auto interp = [&u](size_t i, size_t ip, size_t j, size_t jp, T dx, T dy) {
       return (u(i, j) * (1 - dx) + u(ip, j) * dx) * (1 - dy) +
              (u(i, jp) * (1 - dx) + u(ip, jp) * dx) * dy;
     };
     // Inner cells.
-    for (size_t i = 0; i + 1 < nrow_; ++i) {
-      for (size_t j = 0; j + 1 < ncol_; ++j) {
+    for (size_t i = 0; i + 1 < u.nrow_; ++i) {
+      for (size_t j = 0; j + 1 < u.ncol_; ++j) {
         for (int di = 0; di < 2; ++di) {
           for (int dj = 0; dj < 2; ++dj) {
             const T dx = 0.25 + di * 0.5;
             const T dy = 0.25 + dj * 0.5;
-            res(2 * i + 1 + di, 2 * j + 1 + dj) =
+            ufine(2 * i + 1 + di, 2 * j + 1 + dj) =
                 interp(i, i + 1, j, j + 1, dx, dy);
           }
         }
       }
     }
     // Boundary cells with linear extrapolation.
-    for (size_t ri = 0; ri < res.nrow_; ++ri) {
-      for (size_t rj = 0; rj < res.ncol_; ++rj) {
-        const size_t i = (ri == 0 || nrow_ == 1 ? 0
-                          : ri == res.nrow_ - 1 ? nrow_ - 2
-                                                : (ri - 1) / 2);
-        const size_t j = (rj == 0 || ncol_ == 1 ? 0
-                          : rj == res.ncol_ - 1 ? ncol_ - 2
-                                                : (rj - 1) / 2);
-        const size_t ip = (i + 1 < nrow_ ? i + 1 : i);
-        const size_t jp = (j + 1 < ncol_ ? j + 1 : j);
-        const T dx = 0.5 * (ri - 2 * i) - 0.25;
-        const T dy = 0.5 * (rj - 2 * j) - 0.25;
-        res(ri, rj) = interp(i, ip, j, jp, dx, dy);
-        if (ri > 0 && ri + 1 < res.nrow_) {
+    for (size_t fi = 0; fi < ufine.nrow_; ++fi) {
+      for (size_t fj = 0; fj < ufine.ncol_; ++fj) {
+        const size_t i = (fi == 0 || nrow_ == 1   ? 0
+                          : fi == ufine.nrow_ - 1 ? u.nrow_ - 2
+                                                  : (fi - 1) / 2);
+        const size_t j = (fj == 0 || u.ncol_ == 1 ? 0
+                          : fj == ufine.ncol_ - 1 ? u.ncol_ - 2
+                                                  : (fj - 1) / 2);
+        const size_t ip = (i + 1 < u.nrow_ ? i + 1 : i);
+        const size_t jp = (j + 1 < u.ncol_ ? j + 1 : j);
+        const T dx = 0.5 * (fi - 2 * i) - 0.25;
+        const T dy = 0.5 * (fj - 2 * j) - 0.25;
+        ufine(fi, fj) = interp(i, ip, j, jp, dx, dy);
+        if (fi > 0 && fi + 1 < ufine.nrow_) {
           // Jump to the opposite side.
-          rj += res.ncol_ - 2;
+          fj += ufine.ncol_ - 2;
         }
       }
     }
-    return res;
+    return ufine;
+  }
+  // Adjoint of interpolate().
+  Matrix interpolate_adjoint() const {
+    fassert(nrow_ % 2 == 0);
+    fassert(ncol_ % 2 == 0);
+    const Matrix& ufine = *this;
+    Matrix u(ufine.nrow_ / 2, ufine.ncol_ / 2, T(0));
+    auto interp = [&u](size_t i, size_t ip, size_t j, size_t jp, T dx, T dy,
+                       T value) {
+      u(i, j) += (1 - dx) * (1 - dy) * value;
+      u(ip, j) += dx * (1 - dy) * value;
+      u(i, jp) += (1 - dx) * dy * value;
+      u(ip, jp) += dx * dy * value;
+    };
+    // Inner cells.
+    for (size_t i = 0; i + 1 < u.nrow_; ++i) {
+      for (size_t j = 0; j + 1 < u.ncol_; ++j) {
+        for (int di = 0; di < 2; ++di) {
+          for (int dj = 0; dj < 2; ++dj) {
+            const T dx = 0.25 + di * 0.5;
+            const T dy = 0.25 + dj * 0.5;
+            interp(i, i + 1, j, j + 1, dx, dy,
+                   ufine(2 * i + 1 + di, 2 * j + 1 + dj));
+          }
+        }
+      }
+    }
+    // Boundary cells with linear extrapolation.
+    for (size_t fi = 0; fi < ufine.nrow_; ++fi) {
+      for (size_t fj = 0; fj < ufine.ncol_; ++fj) {
+        const size_t i = (fi == 0 || u.nrow_ == 1 ? 0
+                          : fi == ufine.nrow_ - 1 ? u.nrow_ - 2
+                                                  : (fi - 1) / 2);
+        const size_t j = (fj == 0 || u.ncol_ == 1 ? 0
+                          : fj == ufine.ncol_ - 1 ? u.ncol_ - 2
+                                                  : (fj - 1) / 2);
+        const size_t ip = (i + 1 < u.nrow_ ? i + 1 : i);
+        const size_t jp = (j + 1 < u.ncol_ ? j + 1 : j);
+        const T dx = 0.5 * (fi - 2 * i) - 0.25;
+        const T dy = 0.5 * (fj - 2 * j) - 0.25;
+        interp(i, ip, j, jp, dx, dy, ufine(fi, fj));
+        if (fi > 0 && fi + 1 < ufine.nrow_) {
+          // Jump to the opposite side.
+          fj += ufine.ncol_ - 2;
+        }
+      }
+    }
+    return u;
   }
   T sum() const {
     return std::accumulate(data_.begin(), data_.end(), T{});
   }
   T mean() const {
     return sum() / size();
+  }
+  T dot(const Matrix& other) const {
+    return (*this * other).sum();
   }
   T min() const {
     return *std::min_element(data_.begin(), data_.end());
@@ -396,6 +463,9 @@ class Matrix {
   }
   friend T mean(const Matrix& matr) {
     return matr.mean();
+  }
+  friend T dot(const Matrix& matr, const Matrix& other) {
+    return matr.dot(other);
   }
   friend Matrix operator+(const T& a, const Matrix& matr) {
     Matrix res(matr.nrow_, matr.ncol_);

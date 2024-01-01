@@ -45,13 +45,20 @@ template <class T = double>
 static void TestMultigrid() {
   std::cout << '\n' << __func__ << std::endl;
   using M = Matrix<T>;
-  auto matr = M::iota(8);
+  auto matr = M::iota(6);
   auto Str = [](auto m) { return MatrixToStr(m, 4); };
   PEN(Str(matr));
   PEN(Str(matr.restrict()));
   PEN(Str(matr.restrict().interpolate()));
-  PEN(Str(M::iota(1, 4).interpolate()));
-  PEN(Str(M::iota(4, 1).interpolate()));
+  PEN(Str(M::iota(1, 3).interpolate()));
+  PEN(Str(matr.restrict_adjoint()));
+  PEN(Str(M::iota(8).interpolate_adjoint()));
+  auto ufine = M::iota(8);
+  auto u = M::iota(4);
+  PE(dot(u, ufine.restrict()));
+  PE(dot(ufine, u.restrict_adjoint()));
+  PE(dot(ufine, u.interpolate()));
+  PE(dot(u, ufine.interpolate_adjoint()));
 }
 
 int main() {
