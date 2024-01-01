@@ -60,7 +60,7 @@ static void RunPoisson(Config config) {
       uref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
     }
   }
-  auto eval_lapl = [hx](auto u) {
+  auto eval_lapl = [hx](auto& u) {
     return ((roll(u, 1, 0) + roll(u, -1, 0)) +
             (roll(u, 0, 1) + roll(u, 0, -1)) - 4 * u) /
            sqr(hx);

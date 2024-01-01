@@ -53,6 +53,16 @@ class Node {
   virtual const T& grad() const {
     return grad_;
   }
+  // TODO: Revise updates without age.
+  int age() const {
+    return age_;
+  }
+  void set_age(int age) {
+    age_ = age;
+  }
+  void inc_age() {
+    ++age_;
+  }
   virtual void UpdateValue() = 0;
   virtual void ClearGrad() {
     grad_ = T();
@@ -76,6 +86,7 @@ class Node {
   std::string name_;
   T value_;
   T grad_;
+  int age_ = 0;
 };
 
 template <class T, class E>
@@ -118,7 +129,10 @@ class NodeUnary : public Node<T, E> {
     return x_;
   }
   void UpdateValue() override {
-    x_->UpdateValue();
+    if (x_->age() < this->age()) {
+      x_->set_age(this->age());
+      x_->UpdateValue();
+    }
     this->value_ = fvalue_(x_->value());
   }
   void ClearGrad() override {
@@ -135,7 +149,10 @@ class NodeUnary : public Node<T, E> {
   }
   void TraversePre(Extra& extra) const override {
     extra.TraversePre(this);
-    x_->TraversePre(extra);
+    if (x_->age() < this->age()) {
+      x_->set_age(this->age());
+      x_->TraversePre(extra);
+    }
   }
   void TraversePost(Extra& extra) const override {
     x_->TraversePost(extra);
@@ -171,8 +188,14 @@ class NodeBinary : public Node<T, E> {
   }
 
   void UpdateValue() override {
-    x_->UpdateValue();
-    y_->UpdateValue();
+    if (x_->age() < this->age()) {
+      x_->set_age(this->age());
+      x_->UpdateValue();
+    }
+    if (y_->age() < this->age()) {
+      y_->set_age(this->age());
+      y_->UpdateValue();
+    }
     this->value_ = fvalue_(x_->value(), y_->value());
   }
   void ClearGrad() override {
@@ -191,8 +214,14 @@ class NodeBinary : public Node<T, E> {
   }
   void TraversePre(Extra& extra) const override {
     extra.TraversePre(this);
-    x_->TraversePre(extra);
-    y_->TraversePre(extra);
+    if (x_->age() < this->age()) {
+      x_->set_age(this->age());
+      x_->TraversePre(extra);
+    }
+    if (y_->age() < this->age()) {
+      y_->set_age(this->age());
+      y_->TraversePre(extra);
+    }
   }
   void TraversePost(Extra& extra) const override {
     x_->TraversePost(extra);
@@ -221,10 +250,11 @@ class Tracer {
     return node_->grad();
   }
   void UpdateValue() const {
+    node_->inc_age();
     node_->UpdateValue();
   }
   void UpdateGrad() const {
-    node_->UpdateValue();
+    UpdateValue();
     node_->ClearGrad();
     node_->AppendGrad(T(1));
   }
@@ -239,9 +269,11 @@ class Tracer {
     node_->Print(out);
   }
   void TraversePre(Extra& extra) const {
+    node_->inc_age();
     return node_->TraversePre(extra);
   }
   void TraversePost(Extra& extra) const {
+    node_->inc_age();
     return node_->TraversePost(extra);
   }
 
@@ -341,7 +373,7 @@ Tracer<T, E> interpolate(const Tracer<T, E>& tr_x) {
 template <class T, class E>
 Tracer<T, E> restrict(const Tracer<T, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, T, E>>(
-      tr_x.node(), [](const T& x) { return x.interpolate(); },
+      tr_x.node(), [](const T& x) { return x.restrict(); },
       [](const T&, const T& du) { return du.restrict_adjoint(); }, "R")};
 }
 
