@@ -467,6 +467,21 @@ class Matrix {
   friend T dot(const Matrix& matr, const Matrix& other) {
     return matr.dot(other);
   }
+  friend Matrix transpose(const Matrix& matr) {
+    return matr.transpose();
+  }
+  friend Matrix restrict(const Matrix& matr) {
+    return matr.restrict();
+  }
+  friend Matrix restrict_adjoint(const Matrix& matr) {
+    return matr.restrict_adjoint();
+  }
+  friend Matrix interpolate(const Matrix& matr) {
+    return matr.interpolate();
+  }
+  friend Matrix interpolate_adjoint(const Matrix& matr) {
+    return matr.interpolate_adjoint();
+  }
   friend Matrix operator+(const T& a, const Matrix& matr) {
     Matrix res(matr.nrow_, matr.ncol_);
     for (size_t i = 0; i < matr.data_.size(); ++i) {

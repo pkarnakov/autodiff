@@ -328,6 +328,20 @@ Tracer<T, E> transpose(const Tracer<T, E>& tr_x) {
 }
 
 template <class T, class E>
+Tracer<T, E> interpolate(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [](const T& x) { return x.interpolate(); },
+      [](const T&, const T& du) { return du.interpolate_adjoint(); }, "I")};
+}
+
+template <class T, class E>
+Tracer<T, E> restrict(const Tracer<T, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [](const T& x) { return x.interpolate(); },
+      [](const T&, const T& du) { return du.restrict_adjoint(); }, "R")};
+}
+
+template <class T, class E>
 Tracer<T, E> roll(const Tracer<T, E>& tr_x, int shift_row, int shift_col) {
   const auto name = "roll(" + std::to_string(shift_row) + "," +
                     std::to_string(shift_col) + ")";
