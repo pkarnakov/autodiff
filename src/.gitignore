@@ -4,3 +4,4 @@ build/
 *.svg
 *.png
 *.dat
+kernels.inc
