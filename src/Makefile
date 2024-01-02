@@ -47,7 +47,7 @@ $(BUILD)/poisson: poisson.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
 kernels.inc: kernels.cl
-	echo -e "R\"EOF(\n$$(cat $<)\n)EOF\"" > $@
+	./kernels.gen "$<" "$@"
 
 clean:
 	$(RM) -r $(BUILD) kernels.inc

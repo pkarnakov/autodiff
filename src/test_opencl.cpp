@@ -28,12 +28,29 @@ static void TestOpenCL() {
   auto& device = cl.device_;
 
   std::cout << "Device: " << cl.device_info_.name << std::endl;
+  std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
+            << std::endl;
 
   CL::Program program;
   CL::Kernel kernel;
   program.CreateFromString(kKernelSource, context, device);
 
-  kernel.Create(program, "field_sum");
+  CL::MirroredBuffer<Scal> u;
+  CL::MirroredBuffer<Scal> v;
+  u.Create(context, cl.ngroups_, CL_MEM_WRITE_ONLY);
+  v.Create(context, cl.ngroups_, CL_MEM_WRITE_ONLY);
+  for (size_t i = 0; i < u.size(); ++i) {
+    u[i] = 17. / u.size();
+    v[i] = 10;
+  }
+  u.EnqueueWrite(queue);
+  v.EnqueueWrite(queue);
+  queue.Finish();
+
+  PE(cl.Sum(u));
+  PE(cl.Dot(u, v));
+
+  // kernel.Create(program, "restrict");
 }
 
 int main() {

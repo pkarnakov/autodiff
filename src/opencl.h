@@ -120,11 +120,11 @@ struct OpenCL {
     Buffer(Buffer&&) = delete;
     Buffer& operator=(Buffer&) = delete;
     Buffer& operator=(Buffer&&) = delete;
-    void Create(cl_context context, size_t size_,
+    void Create(cl_context context, size_t size,
                 cl_mem_flags flags = CL_MEM_READ_WRITE) {
-      size = size_;
+      size_ = size;
       cl_int error;
-      handle = clCreateBuffer(context, flags, sizeof(T) * size, NULL, &error);
+      handle = clCreateBuffer(context, flags, sizeof(T) * size_, NULL, &error);
       CLCALL(error);
     }
     ~Buffer() {
@@ -132,23 +132,26 @@ struct OpenCL {
         clReleaseMemObject(handle);
       }
     }
+    size_t size() const {
+      return size_;
+    }
     void EnqueueRead(cl_command_queue queue, T* buf) const {
-      CLCALL(clEnqueueReadBuffer(queue, handle, CL_TRUE, 0, sizeof(T) * size,
+      CLCALL(clEnqueueReadBuffer(queue, handle, CL_TRUE, 0, sizeof(T) * size_,
                                  buf, 0, NULL, NULL));
     }
     void EnqueueRead(cl_command_queue queue, std::vector<T>& buf) const {
       EnqueueRead(queue, buf.data());
     }
     void EnqueueWrite(cl_command_queue queue, const T* buf) {
-      CLCALL(clEnqueueWriteBuffer(queue, handle, CL_TRUE, 0, sizeof(T) * size,
+      CLCALL(clEnqueueWriteBuffer(queue, handle, CL_TRUE, 0, sizeof(T) * size_,
                                   buf, 0, NULL, NULL));
     }
     void EnqueueWrite(cl_command_queue queue, const std::vector<T>& buf) {
       EnqueueWrite(queue, buf.data());
     }
     void EnqueueCopyFrom(cl_command_queue queue, const Buffer& src) {
-      fassert_equal(src.size, size);
-      CLCALL(clEnqueueCopyBuffer(queue, src, handle, 0, 0, sizeof(T) * size, 0,
+      fassert_equal(src.size_, size_);
+      CLCALL(clEnqueueCopyBuffer(queue, src, handle, 0, 0, sizeof(T) * size_, 0,
                                  NULL, NULL));
     }
     operator cl_mem() const {
@@ -158,7 +161,7 @@ struct OpenCL {
       std::swap(handle, other.handle);
     }
     cl_mem handle = NULL;
-    size_t size;
+    size_t size_;
   };
 
   // Buffer that allocates memory both on device and on host.
@@ -167,11 +170,10 @@ struct OpenCL {
   struct MirroredBuffer : public Buffer<T> {
     using Base = Buffer<T>;
     using Base::handle;
-    using Base::size;
-    void Create(cl_context context, size_t size_,
+    void Create(cl_context context, size_t size,
                 cl_mem_flags flags = CL_MEM_READ_WRITE) {
-      Base::Create(context, size_, flags);
-      buf.resize(size);
+      Base::Create(context, size, flags);
+      buf.resize(this->size_);
     }
     void EnqueueRead(cl_command_queue queue) {
       Base::EnqueueRead(queue, buf);
@@ -184,6 +186,12 @@ struct OpenCL {
     }
     T& operator[](size_t i) {
       return buf[i];
+    }
+    const T* data() const {
+      return buf.data();
+    }
+    T* data() {
+      return buf.data();
     }
 
     std::vector<T> buf;
@@ -216,20 +224,20 @@ struct OpenCL {
       CLCALL(clEnqueueNDRangeKernel(queue, handle, kDim, NULL, global.data(),
                                     local.data(), 0, NULL, NULL));
     }
-    void EnqueueWithArgs(int, cl_command_queue queue, MSize global,
-                         MSize local) {
+    void EnqueueWithArgsImpl(int, cl_command_queue queue, MSize global,
+                             MSize local) {
       Enqueue(queue, global, local);
     }
     template <class T, class... Args>
-    void EnqueueWithArgs(int pos, cl_command_queue queue, MSize global,
-                         MSize local, const T& value, const Args&... args) {
+    void EnqueueWithArgsImpl(int pos, cl_command_queue queue, MSize global,
+                             MSize local, const T& value, const Args&... args) {
       SetArg(pos, value);
-      EnqueueWithArgs(pos + 1, queue, global, local, args...);
+      EnqueueWithArgsImpl(pos + 1, queue, global, local, args...);
     }
     template <class... Args>
     void EnqueueWithArgs(cl_command_queue queue, MSize global, MSize local,
                          const Args&... args) {
-      EnqueueWithArgs(0, queue, global, local, args...);
+      EnqueueWithArgsImpl(0, queue, global, local, args...);
     }
 
     operator cl_kernel() const {
