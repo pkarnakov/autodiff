@@ -1,14 +1,16 @@
 #include "opencl.h"
 
+#include <array>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
-const char* kKernels =
+static const char* kKernelSource =
 #include "kernels.inc"
     ;
 
-template <class M>
-std::string OpenCL<M>::GetErrorMessage(cl_int error) {
+template <class Scal>
+std::string OpenCL<Scal>::GetErrorMessage(cl_int error) {
   switch (error) {
     case CL_SUCCESS:
       return "";
@@ -24,8 +26,8 @@ std::string OpenCL<M>::GetErrorMessage(cl_int error) {
   return "";
 }
 
-template <class M>
-auto OpenCL<M>::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
+template <class Scal>
+auto OpenCL<Scal>::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
   cl_uint nplatforms = 0;
   std::array<cl_platform_id, 10> platforms;
   cl_int error;
@@ -51,8 +53,8 @@ auto OpenCL<M>::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
   return res;
 }
 
-template <class M>
-cl_device_id OpenCL<M>::Device::GetDevice(cl_platform_id platform) {
+template <class Scal>
+cl_device_id OpenCL<Scal>::Device::GetDevice(cl_platform_id platform) {
   cl_device_id device;
   cl_int error;
   error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
@@ -63,8 +65,9 @@ cl_device_id OpenCL<M>::Device::GetDevice(cl_platform_id platform) {
   return device;
 }
 
-template <class M>
-auto OpenCL<M>::Device::GetDeviceInfo(cl_platform_id platform) -> DeviceInfo {
+template <class Scal>
+auto OpenCL<Scal>::Device::GetDeviceInfo(cl_platform_id platform)
+    -> DeviceInfo {
   DeviceInfo info;
   info.id = GetDevice(platform);
 
@@ -86,60 +89,60 @@ auto OpenCL<M>::Device::GetDeviceInfo(cl_platform_id platform) -> DeviceInfo {
   return info;
 }
 
-template <class M>
-void OpenCL<M>::Device::Create(size_t pid) {
+template <class Scal>
+void OpenCL<Scal>::Device::Create(size_t pid) {
   auto infos = GetPlatformInfos();
-  fassert(pid < infos.size(),
-          util::Format("Invalid platform index {}. Maximum valid index is {}",
-                       pid, infos.size() - 1));
+  fassert(pid < infos.size(),  //
+          "Invalid platform index " + std::to_string(pid) +
+              ". Maximum valid index is " + std::to_string(infos.size() - 1));
   platform = infos[pid].id;
   handle = GetDevice(platform);
 }
 
-template <class M>
-OpenCL<M>::Device::~Device() {
+template <class Scal>
+OpenCL<Scal>::Device::~Device() {
   if (handle) {
     clReleaseDevice(handle);
   }
 }
 
-template <class M>
-void OpenCL<M>::Context::Create(const cl_device_id* device) {
+template <class Scal>
+void OpenCL<Scal>::Context::Create(const cl_device_id* device) {
   cl_int error;
   handle = clCreateContext(NULL, 1, device, NULL, NULL, &error);
   CLCALL(error);
 }
 
-template <class M>
-OpenCL<M>::Context::~Context() {
+template <class Scal>
+OpenCL<Scal>::Context::~Context() {
   if (handle) {
     clReleaseContext(handle);
   }
 }
 
-template <class M>
-void OpenCL<M>::Queue::Create(cl_context context, cl_device_id device) {
+template <class Scal>
+void OpenCL<Scal>::Queue::Create(cl_context context, cl_device_id device) {
   cl_int error;
   handle = clCreateCommandQueue(context, device, 0, &error);
   CLCALL(error);
 }
 
-template <class M>
-void OpenCL<M>::Queue::Finish() {
+template <class Scal>
+void OpenCL<Scal>::Queue::Finish() {
   CLCALL(clFinish(handle));
 }
 
-template <class M>
-OpenCL<M>::Queue::~Queue() {
+template <class Scal>
+OpenCL<Scal>::Queue::~Queue() {
   if (handle) {
     clReleaseCommandQueue(handle);
   }
 }
 
-template <class M>
-void OpenCL<M>::Program::CreateFromString(std::string source,
-                                          cl_context context,
-                                          cl_device_id device) {
+template <class Scal>
+void OpenCL<Scal>::Program::CreateFromString(std::string source,
+                                             cl_context context,
+                                             cl_device_id device) {
   std::stringstream flags;
   flags << " -DScal=" << (sizeof(Scal) == 4 ? "float" : "double");
   flags << " -cl-std=CL2.0";
@@ -165,122 +168,118 @@ void OpenCL<M>::Program::CreateFromString(std::string source,
   }
 }
 
-template <class M>
-void OpenCL<M>::Program::CreateFromStream(std::istream& in, cl_context context,
-                                          cl_device_id device) {
+template <class Scal>
+void OpenCL<Scal>::Program::CreateFromStream(std::istream& in,
+                                             cl_context context,
+                                             cl_device_id device) {
   std::stringstream ss;
   ss << in.rdbuf();
   CreateFromString(ss.str(), context, device);
 }
 
-template <class M>
-void OpenCL<M>::Program::CreateFromFile(std::string source_path,
-                                        cl_context context,
-                                        cl_device_id device) {
+template <class Scal>
+void OpenCL<Scal>::Program::CreateFromFile(std::string source_path,
+                                           cl_context context,
+                                           cl_device_id device) {
   std::ifstream fin(source_path);
   CreateFromStream(fin, context, device);
 }
 
-template <class M>
-OpenCL<M>::Program::~Program() {
+template <class Scal>
+OpenCL<Scal>::Program::~Program() {
   if (handle) {
     clReleaseProgram(handle);
   }
 }
 
-template <class M>
-void OpenCL<M>::Kernel::Create(cl_program program, std::string name_) {
+template <class Scal>
+void OpenCL<Scal>::Kernel::Create(cl_program program, std::string name_) {
   name = name_;
   cl_int error;
   handle = clCreateKernel(program, name.c_str(), &error);
   fassert_equal(error, CL_SUCCESS, ". Kernel '" + name + "' not found");
 }
 
-template <class M>
-OpenCL<M>::Kernel::~Kernel() {
+template <class Scal>
+OpenCL<Scal>::Kernel::~Kernel() {
   if (handle) {
     clReleaseKernel(handle);
   }
 }
 
-template <class M>
-OpenCL<M>::OpenCL(const M& ms, const Vars& var) {
-  auto ceil = [](MSize n, MSize d) {  //
-    return (n + d - MSize(1)) / d * d;
-  };
+template <class Scal>
+OpenCL<Scal>::OpenCL(const Config& config) : global_size_(config.global_size) {
+  device_.Create(config.platform);
+  device_info_ = Device::GetDeviceInfo(device_.platform);
 
-  const int pid = var.Int("opencl_platform", 0);
-  device.Create(pid);
-  auto dinfo = Device::GetDeviceInfo(device.platform);
-
-  size = ms.GetIndexCells().size();
-  msize = ms.GetInBlockCells().GetSize();
-  local_size = MSize(1);
-  while ((local_size * 2).prod() <= dinfo.max_work_size) {
-    local_size *= 2;
+  fassert_equal(kDim, 2);
+  auto prod = [](MSize s) { return s[0] * s[1]; };
+  local_size_[0] = global_size_[0];
+  local_size_[1] = global_size_[1];
+  while (prod(local_size_) > device_info_.max_work_size) {
+    fassert(local_size_[0] % 2 == 0);
+    fassert(local_size_[1] % 2 == 0);
+    local_size_[0] /= 2;
+    local_size_[1] /= 2;
   }
-  global_size = ceil(MSize(msize), local_size);
-  ngroups = global_size.prod() / local_size.prod();
-  start = (*ms.Cells().begin()).raw();
-  lead_y = ms.GetIndexCells().GetSize()[0];
-  lead_z = ms.GetIndexCells().GetSize()[0] * ms.GetIndexCells().GetSize()[1];
+  ngroups_ = prod(global_size_) / prod(local_size_);
+  start_ = 0;
+  lead_y_ = global_size_[0];
 
-  if (var.Int("opencl_verbose", 0) && ms.IsRoot()) {
-    auto pinfo = Device::GetPlatformInfos()[pid];
-    std::cout << util::Format(
-        "Platform name: {}\n"
-        "Platform vendor: {}\n"
-        "Device name: {}\n"
-        "Device extensions:\n{}\n",
-        pinfo.name, pinfo.vendor, dinfo.name, dinfo.extensions);
+  if (config.verbose) {
+    auto pinfo = Device::GetPlatformInfos()[config.platform];
+    std::cout << "Platform name: " << pinfo.name         //
+              << "\nPlatform vendor: " << pinfo.vendor   //
+              << "\nDevice name: " << device_info_.name  //
+              << "\nDevice extensions:\n"
+              << device_info_.extensions << '\n';
   }
 
-  context.Create(&device.handle);
-  program.CreateFromString(kKernels, context, device);
-  queue.Create(context, device);
+  context_.Create(&device_.handle);
+  queue_.Create(context_, device_);
 
-  d_buf_reduce.Create(context, ngroups, CL_MEM_WRITE_ONLY);
-
-  kernel_max.Create(program, "field_max");
-  kernel_dot.Create(program, "field_dot");
-  kernel_sum.Create(program, "field_sum");
+  program_.CreateFromString(kKernelSource, context_, device_);
+  d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
+  kernel_max_.Create(program_, "field_max");
+  kernel_dot_.Create(program_, "field_dot");
+  kernel_sum_.Create(program_, "field_sum");
 }
 
-template <class M>
-auto OpenCL<M>::Max(cl_mem d_u) -> Scal {
-  kernel_max.EnqueueWithArgs(queue, global_size, local_size, start, lead_y,
-                             lead_z, d_u, d_buf_reduce);
-  d_buf_reduce.EnqueueRead(queue);
-  queue.Finish();
+template <class Scal>
+auto OpenCL<Scal>::Max(cl_mem d_u) -> Scal {
+  kernel_max_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, d_u, d_buf_reduce_);
+  d_buf_reduce_.EnqueueRead(queue_);
+  queue_.Finish();
   Scal res = -std::numeric_limits<Scal>::max();
-  for (size_t i = 0; i < ngroups; ++i) {
-    res = std::max(res, d_buf_reduce[i]);
+  for (size_t i = 0; i < ngroups_; ++i) {
+    res = std::max(res, d_buf_reduce_[i]);
   }
   return res;
 }
 
-template <class M>
-auto OpenCL<M>::Sum(cl_mem d_u) -> Scal {
-  kernel_sum.EnqueueWithArgs(queue, global_size, local_size, start, lead_y,
-                             lead_z, d_u, d_buf_reduce);
-  d_buf_reduce.EnqueueRead(queue);
-  queue.Finish();
+template <class Scal>
+auto OpenCL<Scal>::Sum(cl_mem d_u) -> Scal {
+  kernel_sum_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, d_u, d_buf_reduce_);
+  d_buf_reduce_.EnqueueRead(queue_);
+  queue_.Finish();
   Scal res = 0;
-  for (size_t i = 0; i < ngroups; ++i) {
-    res += d_buf_reduce[i];
+  for (size_t i = 0; i < ngroups_; ++i) {
+    res += d_buf_reduce_[i];
   }
   return res;
 }
 
-template <class M>
-auto OpenCL<M>::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
-  kernel_dot.EnqueueWithArgs(queue, global_size, local_size, start, lead_y,
-                             lead_z, d_u, d_v, d_buf_reduce);
-  d_buf_reduce.EnqueueRead(queue);
-  queue.Finish();
+template <class Scal>
+auto OpenCL<Scal>::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
+  kernel_dot_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, d_u, d_v, d_buf_reduce_);
+  d_buf_reduce_.EnqueueRead(queue_);
+  queue_.Finish();
   Scal res = 0;
-  for (size_t i = 0; i < ngroups; ++i) {
-    res += d_buf_reduce[i];
+  for (size_t i = 0; i < ngroups_; ++i) {
+    res += d_buf_reduce_[i];
   }
   return res;
 }

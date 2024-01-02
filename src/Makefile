@@ -40,8 +40,8 @@ $(BUILD)/test_matrix: test_matrix.cpp macros.h matrix.h | $(BUILD)
 $(BUILD)/test_optimizer: test_optimizer.cpp macros.h optimizer.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
-$(BUILD)/test_opencl: test_opencl.cpp macros.h kernels.inc | $(BUILD)
-	$(CXX) $(CXXFLAGS) $< -o "$@"
+$(BUILD)/test_opencl: test_opencl.cpp opencl.cpp opencl.h macros.h kernels.inc | $(BUILD)
+	$(CXX) $(CXXFLAGS) -lOpenCL $< opencl.cpp -o "$@"
 
 $(BUILD)/poisson: poisson.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"

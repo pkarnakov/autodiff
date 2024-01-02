@@ -1,6 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <iosfwd>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -9,60 +12,32 @@
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
 
+#include "macros.h"
+
 #define CLCALL(x)                                                     \
   do {                                                                \
     cl_int CLCALL_error;                                              \
     CLCALL_error = x;                                                 \
     if (CLCALL_error != CL_SUCCESS) {                                 \
       throw std::runtime_error(                                       \
-          std::string() + __FILE__ + ":" + std::to_string(__LINE__) + \
-          ": CL failed: " + std::to_string(CLCALL_error));            \
+          FILELINE + ": CL failed: " + std::to_string(CLCALL_error)); \
     }                                                                 \
   } while (0)
 
-template <class M, class T>
-void SharedToLocal(const FieldCell<T>& fc_shared, FieldCell<T>& fc_local,
-                   const M& m) {
-  using MIdx = typename M::MIdx;
-  auto& ms = m.GetShared();
-  fassert_equal(fc_shared.size(), ms.GetIndexCells().size());
-  if (fc_local.size()) {
-    fassert_equal(fc_local.size(), m.GetIndexCells().size());
-  } else {
-    fc_local.Reinit(m);
-  }
-  auto& ics = ms.GetIndexCells();
-  for (auto c : m.AllCellsM()) {
-    const auto cs = ics.GetIdx(MIdx(c));
-    fc_local[c] = fc_shared[cs];
-  }
-}
-
-template <class M, class T>
-void LocalToShared(const FieldCell<T>& fc_local, FieldCell<T>& fc_shared,
-                   const M& m) {
-  using MIdx = typename M::MIdx;
-  auto& ms = m.GetShared();
-  fassert_equal(fc_local.size(), m.GetIndexCells().size());
-  if (fc_shared.size()) {
-    fassert_equal(fc_shared.size(), ms.GetIndexCells().size());
-  } else {
-    fc_shared.Reinit(ms);
-  }
-  auto& ics = ms.GetIndexCells();
-  for (auto c : m.CellsM()) {
-    const auto cs = ics.GetIdx(MIdx(c));
-    fc_shared[cs] = fc_local[c];
-  }
-}
-
-template <class M>
+template <class Scal_>
 struct OpenCL {
   static std::string GetErrorMessage(cl_int error);
 
-  using Scal = typename M::Scal;
-  using MIdx = typename M::MIdx;
-  using MSize = generic::Vect<size_t, M::dim>;
+  using Scal = Scal_;
+  static constexpr int kDim = 2;
+  using MSize = std::array<size_t, kDim>;
+
+  struct Config {
+    int platform = 0;
+    int verbose = 0;
+    MSize global_size;  // Global array size.
+  };
+
   struct Device {
     Device() = default;
     Device(const Device&) = delete;
@@ -187,6 +162,8 @@ struct OpenCL {
     size_t size;
   };
 
+  // Buffer that allocates memory both on device and on host.
+  // Memory on host is accessed by operator[].
   template <class T>
   struct MirroredBuffer : public Buffer<T> {
     using Base = Buffer<T>;
@@ -237,7 +214,7 @@ struct OpenCL {
       SetArg(pos, value.handle);
     }
     void Enqueue(cl_command_queue queue, MSize global, MSize local) {
-      CLCALL(clEnqueueNDRangeKernel(queue, handle, M::dim, NULL, global.data(),
+      CLCALL(clEnqueueNDRangeKernel(queue, handle, kDim, NULL, global.data(),
                                     local.data(), 0, NULL, NULL));
     }
     void EnqueueWithArgs(int, cl_command_queue queue, MSize global,
@@ -263,47 +240,27 @@ struct OpenCL {
     std::string name;
   };
 
-  struct HaloComm {
-    HaloComm() = default;
-    HaloComm(const HaloComm&) = delete;
-    HaloComm(HaloComm&&) = delete;
-    HaloComm& operator=(HaloComm&) = delete;
-    HaloComm& operator=(HaloComm&&) = delete;
-    void Create(cl_context context, const M& ms, const OpenCL& cl);
-    void Comm(M& m, Buffer<Scal>& d_field, Queue& queue, OpenCL& cl);
-
-    FieldCell<Scal> fc_buf;
-    MirroredBuffer<Scal> d_buf;
-    std::vector<IdxCell> cells_inner;
-    std::vector<IdxCell> cells_halo;
-  };
-
-  OpenCL(const M& ms, const Vars& var);
+  OpenCL(const Config&);
   Scal Max(cl_mem d_u);
   Scal Sum(cl_mem d_u);
   Scal Dot(cl_mem d_u, cl_mem d_v);
-  void Comm(M& m, Buffer<Scal>& buf) {
-    halocomm.Comm(m, buf, queue, *this);
-  }
 
-  Context context;
-  Device device;
-  Program program;
-  Queue queue;
-  Kernel kernel_inner_to_buf;
-  Kernel kernel_buf_to_halo;
-  Kernel kernel_dot;
-  Kernel kernel_sum;
-  Kernel kernel_max;
-  MirroredBuffer<Scal> d_buf_reduce;
-  HaloComm halocomm;
+  Context context_;
+  Device device_;
+  typename Device::DeviceInfo device_info_;
+  Queue queue_;
+  Program program_;
+  Kernel kernel_dot_;
+  Kernel kernel_sum_;
+  Kernel kernel_max_;
+  MirroredBuffer<Scal> d_buf_reduce_;
 
-  size_t size;
-  MSize global_size;
-  MSize local_size;
-  size_t ngroups;
-  int start;   // offset of first element of inner cells
-  int lead_y;  // leading dimension in y, factor before y in linear index
-  int lead_z;  // leading dimension in z, factor before z in linear index
-  MIdx msize;  // number of inner cells
+  MSize global_size_;
+  MSize local_size_;
+  size_t ngroups_;
+  int start_;   // offset of first element of inner cells
+  int lead_y_;  // leading dimension in y, factor before y in linear index
 };
+
+// Instantiate classes.
+template class OpenCL<double>;
