@@ -9,8 +9,7 @@ static const char* kKernelSource =
 #include "kernels.inc"
     ;
 
-template <class Scal>
-std::string OpenCL<Scal>::GetErrorMessage(cl_int error) {
+std::string OpenCL::GetErrorMessage(cl_int error) {
   switch (error) {
     case CL_SUCCESS:
       return "";
@@ -26,8 +25,7 @@ std::string OpenCL<Scal>::GetErrorMessage(cl_int error) {
   return "";
 }
 
-template <class Scal>
-auto OpenCL<Scal>::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
+auto OpenCL::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
   cl_uint nplatforms = 0;
   std::array<cl_platform_id, 10> platforms;
   cl_int error;
@@ -53,8 +51,7 @@ auto OpenCL<Scal>::Device::GetPlatformInfos() -> std::vector<PlatformInfo> {
   return res;
 }
 
-template <class Scal>
-cl_device_id OpenCL<Scal>::Device::GetDevice(cl_platform_id platform) {
+cl_device_id OpenCL::Device::GetDevice(cl_platform_id platform) {
   cl_device_id device;
   cl_int error;
   error = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
@@ -65,9 +62,7 @@ cl_device_id OpenCL<Scal>::Device::GetDevice(cl_platform_id platform) {
   return device;
 }
 
-template <class Scal>
-auto OpenCL<Scal>::Device::GetDeviceInfo(cl_platform_id platform)
-    -> DeviceInfo {
+auto OpenCL::Device::GetDeviceInfo(cl_platform_id platform) -> DeviceInfo {
   DeviceInfo info;
   info.id = GetDevice(platform);
 
@@ -89,8 +84,7 @@ auto OpenCL<Scal>::Device::GetDeviceInfo(cl_platform_id platform)
   return info;
 }
 
-template <class Scal>
-void OpenCL<Scal>::Device::Create(size_t pid) {
+void OpenCL::Device::Create(size_t pid) {
   auto infos = GetPlatformInfos();
   fassert(pid < infos.size(),  //
           "Invalid platform index " + std::to_string(pid) +
@@ -99,50 +93,42 @@ void OpenCL<Scal>::Device::Create(size_t pid) {
   handle = GetDevice(platform);
 }
 
-template <class Scal>
-OpenCL<Scal>::Device::~Device() {
+OpenCL::Device::~Device() {
   if (handle) {
     clReleaseDevice(handle);
   }
 }
 
-template <class Scal>
-void OpenCL<Scal>::Context::Create(const cl_device_id* device) {
+void OpenCL::Context::Create(const cl_device_id* device) {
   cl_int error;
   handle = clCreateContext(NULL, 1, device, NULL, NULL, &error);
   CLCALL(error);
 }
 
-template <class Scal>
-OpenCL<Scal>::Context::~Context() {
+OpenCL::Context::~Context() {
   if (handle) {
     clReleaseContext(handle);
   }
 }
 
-template <class Scal>
-void OpenCL<Scal>::Queue::Create(cl_context context, cl_device_id device) {
+void OpenCL::Queue::Create(cl_context context, cl_device_id device) {
   cl_int error;
   handle = clCreateCommandQueue(context, device, 0, &error);
   CLCALL(error);
 }
 
-template <class Scal>
-void OpenCL<Scal>::Queue::Finish() {
+void OpenCL::Queue::Finish() {
   CLCALL(clFinish(handle));
 }
 
-template <class Scal>
-OpenCL<Scal>::Queue::~Queue() {
+OpenCL::Queue::~Queue() {
   if (handle) {
     clReleaseCommandQueue(handle);
   }
 }
 
-template <class Scal>
-void OpenCL<Scal>::Program::CreateFromString(std::string source,
-                                             cl_context context,
-                                             cl_device_id device) {
+void OpenCL::Program::CreateFromString(std::string source, cl_context context,
+                                       cl_device_id device) {
   std::stringstream flags;
   flags << " -DScal=" << (sizeof(Scal) == 4 ? "float" : "double");
   flags << " -cl-std=CL2.0";
@@ -168,47 +154,39 @@ void OpenCL<Scal>::Program::CreateFromString(std::string source,
   }
 }
 
-template <class Scal>
-void OpenCL<Scal>::Program::CreateFromStream(std::istream& in,
-                                             cl_context context,
-                                             cl_device_id device) {
+void OpenCL::Program::CreateFromStream(std::istream& in, cl_context context,
+                                       cl_device_id device) {
   std::stringstream ss;
   ss << in.rdbuf();
   CreateFromString(ss.str(), context, device);
 }
 
-template <class Scal>
-void OpenCL<Scal>::Program::CreateFromFile(std::string source_path,
-                                           cl_context context,
-                                           cl_device_id device) {
+void OpenCL::Program::CreateFromFile(std::string source_path,
+                                     cl_context context, cl_device_id device) {
   std::ifstream fin(source_path);
   CreateFromStream(fin, context, device);
 }
 
-template <class Scal>
-OpenCL<Scal>::Program::~Program() {
+OpenCL::Program::~Program() {
   if (handle) {
     clReleaseProgram(handle);
   }
 }
 
-template <class Scal>
-void OpenCL<Scal>::Kernel::Create(cl_program program, std::string name_) {
+void OpenCL::Kernel::Create(cl_program program, std::string name_) {
   name = name_;
   cl_int error;
   handle = clCreateKernel(program, name.c_str(), &error);
   fassert_equal(error, CL_SUCCESS, ". Kernel '" + name + "' not found");
 }
 
-template <class Scal>
-OpenCL<Scal>::Kernel::~Kernel() {
+OpenCL::Kernel::~Kernel() {
   if (handle) {
     clReleaseKernel(handle);
   }
 }
 
-template <class Scal>
-OpenCL<Scal>::OpenCL(const Config& config) : global_size_(config.global_size) {
+OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   device_.Create(config.platform);
   device_info_ = Device::GetDeviceInfo(device_.platform);
 
@@ -245,8 +223,7 @@ OpenCL<Scal>::OpenCL(const Config& config) : global_size_(config.global_size) {
   kernel_sum_.Create(program_, "field_sum");
 }
 
-template <class Scal>
-auto OpenCL<Scal>::Max(cl_mem d_u) -> Scal {
+auto OpenCL::Max(cl_mem d_u) -> Scal {
   kernel_max_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
                               lead_y_, d_u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
@@ -258,8 +235,7 @@ auto OpenCL<Scal>::Max(cl_mem d_u) -> Scal {
   return res;
 }
 
-template <class Scal>
-auto OpenCL<Scal>::Sum(cl_mem d_u) -> Scal {
+auto OpenCL::Sum(cl_mem d_u) -> Scal {
   kernel_sum_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
                               lead_y_, d_u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
@@ -271,8 +247,7 @@ auto OpenCL<Scal>::Sum(cl_mem d_u) -> Scal {
   return res;
 }
 
-template <class Scal>
-auto OpenCL<Scal>::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
+auto OpenCL::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
   kernel_dot_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
                               lead_y_, d_u, d_v, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);

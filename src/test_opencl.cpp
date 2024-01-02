@@ -17,8 +17,8 @@ template <class Scal = double>
 static void TestOpenCL() {
   std::cout << '\n' << __func__ << std::endl;
 
-  using CL = OpenCL<Scal>;
-  typename CL::Config config;
+  using CL = OpenCL;
+  CL::Config config;
   config.platform = 0;
   config.verbose = 0;
   config.global_size = {32, 32};
@@ -29,9 +29,10 @@ static void TestOpenCL() {
 
   std::cout << "Device: " << cl.device_info_.name << std::endl;
 
-  typename CL::Program program;
-  typename CL::Kernel kernel;
+  CL::Program program;
+  CL::Kernel kernel;
   program.CreateFromString(kKernelSource, context, device);
+
   kernel.Create(program, "field_sum");
 }
 

@@ -24,11 +24,10 @@
     }                                                                 \
   } while (0)
 
-template <class Scal_>
 struct OpenCL {
   static std::string GetErrorMessage(cl_int error);
 
-  using Scal = Scal_;
+  using Scal = double;
   static constexpr int kDim = 2;
   using MSize = std::array<size_t, kDim>;
 
@@ -261,6 +260,3 @@ struct OpenCL {
   int start_;   // offset of first element of inner cells
   int lead_y_;  // leading dimension in y, factor before y in linear index
 };
-
-// Instantiate classes.
-template class OpenCL<double>;
