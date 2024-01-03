@@ -40,9 +40,9 @@ struct OpenCL {
   struct Device {
     Device() = default;
     Device(const Device&) = delete;
-    Device(Device&&) = delete;
+    Device(Device&&) = default;
     Device& operator=(Device&) = delete;
-    Device& operator=(Device&&) = delete;
+    Device& operator=(Device&&) = default;
     struct PlatformInfo {
       cl_platform_id id;
       std::string name;
@@ -69,9 +69,9 @@ struct OpenCL {
   struct Context {
     Context() = default;
     Context(const Context&) = delete;
-    Context(Context&&) = delete;
+    Context(Context&&) = default;
     Context& operator=(Context&) = delete;
-    Context& operator=(Context&&) = delete;
+    Context& operator=(Context&&) = default;
     void Create(const cl_device_id* device);
     ~Context();
     operator cl_context() const {
@@ -83,9 +83,9 @@ struct OpenCL {
   struct Queue {
     Queue() = default;
     Queue(const Queue&) = delete;
-    Queue(Queue&&) = delete;
+    Queue(Queue&&) = default;
     Queue& operator=(Queue&) = delete;
-    Queue& operator=(Queue&&) = delete;
+    Queue& operator=(Queue&&) = default;
     void Create(cl_context context, cl_device_id device);
     void Finish();
     ~Queue();
@@ -98,9 +98,9 @@ struct OpenCL {
   struct Program {
     Program() = default;
     Program(const Program&) = delete;
-    Program(Program&&) = delete;
+    Program(Program&&) = default;
     Program& operator=(Program&) = delete;
-    Program& operator=(Program&&) = delete;
+    Program& operator=(Program&&) = default;
     void CreateFromString(std::string source, cl_context context,
                           cl_device_id device);
     void CreateFromStream(std::istream& in, cl_context context,
@@ -116,10 +116,14 @@ struct OpenCL {
   template <class T>
   struct Buffer {
     Buffer() = default;
+    Buffer(cl_context context, size_t size,
+           cl_mem_flags flags = CL_MEM_READ_WRITE) {
+      Create(context, size, flags);
+    }
     Buffer(const Buffer&) = delete;
-    Buffer(Buffer&&) = delete;
+    Buffer(Buffer&&) = default;
     Buffer& operator=(Buffer&) = delete;
-    Buffer& operator=(Buffer&&) = delete;
+    Buffer& operator=(Buffer&&) = default;
     void Create(cl_context context, size_t size,
                 cl_mem_flags flags = CL_MEM_READ_WRITE) {
       size_ = size;
@@ -200,9 +204,9 @@ struct OpenCL {
   struct Kernel {
     Kernel() = default;
     Kernel(const Kernel&) = delete;
-    Kernel(Kernel&&) = delete;
+    Kernel(Kernel&&) = default;
     Kernel& operator=(Kernel&) = delete;
-    Kernel& operator=(Kernel&&) = delete;
+    Kernel& operator=(Kernel&&) = default;
     void Create(cl_program program, std::string name_);
     ~Kernel();
     template <class T>
@@ -248,9 +252,23 @@ struct OpenCL {
   };
 
   OpenCL(const Config&);
-  Scal Max(cl_mem d_u);
-  Scal Sum(cl_mem d_u);
-  Scal Dot(cl_mem d_u, cl_mem d_v);
+  OpenCL(OpenCL&&) = default;
+  Scal Max(cl_mem u);
+  Scal Sum(cl_mem u);
+  Scal Dot(cl_mem u, cl_mem v);
+  void Add(cl_mem u, cl_mem v, cl_mem sum);
+  void Sub(cl_mem u, cl_mem v, cl_mem sum);
+  void Mul(cl_mem u, cl_mem v, cl_mem sum);
+  void Div(cl_mem u, cl_mem v, cl_mem sum);
+  void Fill(cl_mem u, Scal value);
+
+  // Accessors.
+  Context& context() {
+    return context_;
+  }
+  Queue& queue() {
+    return queue_;
+  }
 
   Context context_;
   Device device_;
@@ -260,6 +278,11 @@ struct OpenCL {
   Kernel kernel_dot_;
   Kernel kernel_sum_;
   Kernel kernel_max_;
+  Kernel kernel_fill_;
+  Kernel kernel_add_;
+  Kernel kernel_sub_;
+  Kernel kernel_mul_;
+  Kernel kernel_div_;
   MirroredBuffer<Scal> d_buf_reduce_;
 
   MSize global_size_;

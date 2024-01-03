@@ -61,6 +61,12 @@ class Matrix {
   size_t size() const {
     return nrow_ * ncol_;
   }
+  const T* data() const {
+    return data_.data();
+  }
+  T* data() {
+    return data_.data();
+  }
 
   // Assignment.
   Matrix& operator=(const Matrix&) = default;

@@ -221,11 +221,16 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   kernel_max_.Create(program_, "field_max");
   kernel_dot_.Create(program_, "field_dot");
   kernel_sum_.Create(program_, "field_sum");
+  kernel_fill_.Create(program_, "field_fill");
+  kernel_add_.Create(program_, "field_add");
+  kernel_sub_.Create(program_, "field_sub");
+  kernel_mul_.Create(program_, "field_mul");
+  kernel_div_.Create(program_, "field_div");
 }
 
-auto OpenCL::Max(cl_mem d_u) -> Scal {
+auto OpenCL::Max(cl_mem u) -> Scal {
   kernel_max_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, d_u, d_buf_reduce_);
+                              lead_y_, u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = -std::numeric_limits<Scal>::max();
@@ -235,9 +240,9 @@ auto OpenCL::Max(cl_mem d_u) -> Scal {
   return res;
 }
 
-auto OpenCL::Sum(cl_mem d_u) -> Scal {
+auto OpenCL::Sum(cl_mem u) -> Scal {
   kernel_sum_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, d_u, d_buf_reduce_);
+                              lead_y_, u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = 0;
@@ -247,9 +252,9 @@ auto OpenCL::Sum(cl_mem d_u) -> Scal {
   return res;
 }
 
-auto OpenCL::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
+auto OpenCL::Dot(cl_mem u, cl_mem v) -> Scal {
   kernel_dot_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, d_u, d_v, d_buf_reduce_);
+                              lead_y_, u, v, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = 0;
@@ -257,4 +262,29 @@ auto OpenCL::Dot(cl_mem d_u, cl_mem d_v) -> Scal {
     res += d_buf_reduce_[i];
   }
   return res;
+}
+
+void OpenCL::Fill(cl_mem u, Scal value) {
+  kernel_fill_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                               lead_y_, u, value);
+}
+
+void OpenCL::Add(cl_mem u, cl_mem v, cl_mem res) {
+  kernel_add_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, u, v, res);
+}
+
+void OpenCL::Sub(cl_mem u, cl_mem v, cl_mem res) {
+  kernel_sub_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, u, v, res);
+}
+
+void OpenCL::Mul(cl_mem u, cl_mem v, cl_mem res) {
+  kernel_mul_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, u, v, res);
+}
+
+void OpenCL::Div(cl_mem u, cl_mem v, cl_mem res) {
+  kernel_div_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
+                              lead_y_, u, v, res);
 }
