@@ -11,6 +11,8 @@
 template <class T>
 class Var {
  public:
+  Var(std::unique_ptr<T>&& ptr, const std::string& name = "")
+      : value_(std::move(ptr)), name_(name) {}
   Var(const T& value, const std::string& name = "")
       : value_(std::make_unique<T>(value)), name_(name) {}
 

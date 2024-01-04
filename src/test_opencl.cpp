@@ -5,10 +5,20 @@
 
 #include "matrix_cl.h"
 #include "opencl.h"
+#include "reverse.h"
 
 // Print and evaluate.
 #define PE(a) std::cout << #a << ": " << (a) << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << (a) << '\n' << std::endl;
+
+////////////////////////////////////////
+// Specializations for reverse.h
+////////////////////////////////////////
+template <class T>
+struct TypeName<MatrixCL<T>> {
+  inline static const std::string value =
+      "MatrixCL<" + TypeName<T>::value + ">";
+};
 
 using CL = OpenCL;
 
@@ -81,8 +91,54 @@ static void TestMatrix(CL& cl) {
   PE(iota(2, 2));
 }
 
+struct Extra : public BaseExtra {
+  Extra(std::ostream& out) : dot(out) {}
+  template <class Node>
+  void Visit(Node* node) {
+    dot.Write(node);
+  }
+  DotWriter dot;
+};
+
+template <class Scal = double>
+static void TestReverse(CL& cl) {
+  std::cout << '\n' << __func__ << std::endl;
+  const auto pi = M_PI;
+
+  const size_t nrow = cl.global_size_[0];
+  const size_t ncol = cl.global_size_[1];
+  const auto eye = Matrix<Scal>::eye(nrow, ncol);
+  auto matr_x = std::make_unique<MatrixCL<Scal>>(eye * (pi / 8), cl);
+  auto matr_y = std::make_unique<MatrixCL<Scal>>(eye * (pi / 8), cl);
+  Var<MatrixCL<Scal>> var_x(std::move(matr_x), "x");
+  Var<MatrixCL<Scal>> var_y(std::move(matr_y), "y");
+  PE(var_x);
+  PE(var_y);
+  /*
+  auto x = MakeTracer<Extra>(var_x);
+  auto y = MakeTracer<Extra>(var_y);
+  auto eval = [&](auto& e, std::string path) {
+    const auto order = e.GetFowardOrder();
+    e.UpdateGrad(order);
+    PE(e.value());
+    PE(x.grad());
+    PE(y.grad());
+    std::cout << path << std::endl;
+    std::ofstream fout(path);
+    Extra extra(fout);
+    Traverse(order, extra);
+    ClearVisited(order);
+  };
+  auto e1 = sum(sin(x) * cos(y) + cos(x) * sin(y));
+  eval(e1, "reverse_cl_1.gv");
+  auto e2 = sum(sin(x + y));
+  eval(e2, "reverse_cl_2.gv");
+  */
+}
+
 int main() {
   auto cl = Init();
-  TestBasic(cl);
-  TestMatrix(cl);
+  // TestBasic(cl);
+  // TestMatrix(cl);
+  TestReverse(cl);
 }

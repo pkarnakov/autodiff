@@ -7,8 +7,8 @@
 #include "optimizer.h"
 
 // Print and evaluate.
-#define PE(a) std::cout << #a << ": " << a << std::endl;
-#define PEN(a) std::cout << #a << ":\n" << a << '\n' << std::endl;
+#define PE(a) std::cout << #a << ": " << (a) << std::endl;
+#define PEN(a) std::cout << #a << ":\n" << (a) << '\n' << std::endl;
 
 template <class Scal = double>
 static void TestAdam() {

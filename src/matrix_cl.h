@@ -193,3 +193,19 @@ class MatrixCL {
   size_t ncol_;
   CL::Buffer<T> data_;
 };
+
+////////////////////////////////////////
+// Output.
+////////////////////////////////////////
+
+template <class T>
+std::ostream& operator<<(std::ostream& out, const MatrixCL<T>& matr) {
+  out << Matrix<T>(matr);
+  return out;
+}
+
+template <class T>
+std::string MatrixToStr(const MatrixCL<T>& matr, int width = 3,
+                        int precision = 6, bool fixed = false) {
+  return MatrixToStr(Matrix<T>(matr), width, precision, fixed);
+};

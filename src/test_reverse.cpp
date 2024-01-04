@@ -6,8 +6,8 @@
 #include "reverse.h"
 
 // Print and evaluate.
-#define PE(a) std::cout << #a << ": " << a << std::endl;
-#define PEN(a) std::cout << #a << ":\n" << a << std::endl;
+#define PE(a) std::cout << #a << ": " << (a) << std::endl;
+#define PEN(a) std::cout << #a << ":\n" << (a) << std::endl;
 
 struct Extra : public BaseExtra {
   Extra(std::ostream& out) : dot(out) {}
