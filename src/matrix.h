@@ -106,6 +106,9 @@ class Matrix {
     }
     return *this;
   }
+  void fill(const T& value) {
+    std::fill(data_.begin(), data_.end());
+  }
 
   // Member functions.
   Matrix operator-() const {

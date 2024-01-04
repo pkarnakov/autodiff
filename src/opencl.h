@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <iosfwd>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -253,14 +254,50 @@ struct OpenCL {
 
   OpenCL(const Config&);
   OpenCL(OpenCL&&) = default;
+  // Reduction operations.
   Scal Max(cl_mem u);
+  Scal Min(cl_mem u);
   Scal Sum(cl_mem u);
   Scal Dot(cl_mem u, cl_mem v);
-  void Add(cl_mem u, cl_mem v, cl_mem sum);
-  void Sub(cl_mem u, cl_mem v, cl_mem sum);
-  void Mul(cl_mem u, cl_mem v, cl_mem sum);
-  void Div(cl_mem u, cl_mem v, cl_mem sum);
+  // Element access.
+  template <class T>
+  T ReadAt(cl_mem u, int ix, int iy);
+  template <class T>
+  void WriteAt(cl_mem u, int ix, int iy, T value);
+  // Assignment operations.
   void Fill(cl_mem u, Scal value);
+  // Unary operations.
+  void Add(cl_mem u, Scal v, cl_mem res);
+  void Sub(cl_mem u, Scal v, cl_mem res);
+  void Sub(Scal u, cl_mem v, cl_mem res);
+  void Mul(cl_mem u, Scal v, cl_mem res);
+  void Div(cl_mem u, Scal v, cl_mem res);
+  void Div(Scal u, cl_mem v, cl_mem res);
+  void Sin(cl_mem v, cl_mem res);
+  void Cos(cl_mem v, cl_mem res);
+  void Exp(cl_mem v, cl_mem res);
+  void Log(cl_mem v, cl_mem res);
+  // Binary operations.
+  void Add(cl_mem u, cl_mem v, cl_mem res);
+  void Sub(cl_mem u, cl_mem v, cl_mem res);
+  void Mul(cl_mem u, cl_mem v, cl_mem res);
+  void Div(cl_mem u, cl_mem v, cl_mem res);
+
+  void LaunchImpl(int, Kernel& kernel) {
+    kernel.Enqueue(queue_, global_size_, local_size_);
+  }
+  template <class T, class... Args>
+  void LaunchImpl(int pos, Kernel& kernel, const T& value,
+                  const Args&... args) {
+    kernel.SetArg(pos, value);
+    LaunchImpl(pos + 1, kernel, args...);
+  }
+  template <class... Args>
+  void Launch(const std::string& name, const Args&... args) {
+    auto it = kernels_.find(name);
+    fassert(it != kernels_.end(), "Kernel '" + name + "' not found");
+    LaunchImpl(0, it->second, args...);
+  }
 
   // Accessors.
   Context& context() {
@@ -275,14 +312,7 @@ struct OpenCL {
   typename Device::DeviceInfo device_info_;
   Queue queue_;
   Program program_;
-  Kernel kernel_dot_;
-  Kernel kernel_sum_;
-  Kernel kernel_max_;
-  Kernel kernel_fill_;
-  Kernel kernel_add_;
-  Kernel kernel_sub_;
-  Kernel kernel_mul_;
-  Kernel kernel_div_;
+  std::map<std::string, Kernel> kernels_;
   MirroredBuffer<Scal> d_buf_reduce_;
 
   MSize global_size_;

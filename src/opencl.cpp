@@ -218,19 +218,19 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
 
   program_.CreateFromString(kKernelSource, context_, device_);
   d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
-  kernel_max_.Create(program_, "field_max");
-  kernel_dot_.Create(program_, "field_dot");
-  kernel_sum_.Create(program_, "field_sum");
-  kernel_fill_.Create(program_, "field_fill");
-  kernel_add_.Create(program_, "field_add");
-  kernel_sub_.Create(program_, "field_sub");
-  kernel_mul_.Create(program_, "field_mul");
-  kernel_div_.Create(program_, "field_div");
+  for (std::string name : {
+           "reduce_max",  "reduce_min", "reduce_sum",  "reduce_dot",
+           "assign_fill", "scalar_add", "scalar_sub",  "scalar_sub2",
+           "scalar_mul",  "scalar_div", "scalar_div2", "field_add",
+           "field_sub",   "field_mul",  "field_div",   "unary_sin",
+           "unary_cos",   "unary_exp",  "unary_log",
+       }) {
+    kernels_[name].Create(program_, name);
+  }
 }
 
 auto OpenCL::Max(cl_mem u) -> Scal {
-  kernel_max_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, d_buf_reduce_);
+  Launch("reduce_max", start_, lead_y_, u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = -std::numeric_limits<Scal>::max();
@@ -240,9 +240,19 @@ auto OpenCL::Max(cl_mem u) -> Scal {
   return res;
 }
 
+auto OpenCL::Min(cl_mem u) -> Scal {
+  Launch("reduce_min", start_, lead_y_, u, d_buf_reduce_);
+  d_buf_reduce_.EnqueueRead(queue_);
+  queue_.Finish();
+  Scal res = std::numeric_limits<Scal>::max();
+  for (size_t i = 0; i < ngroups_; ++i) {
+    res = std::min(res, d_buf_reduce_[i]);
+  }
+  return res;
+}
+
 auto OpenCL::Sum(cl_mem u) -> Scal {
-  kernel_sum_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, d_buf_reduce_);
+  Launch("reduce_sum", start_, lead_y_, u, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = 0;
@@ -253,8 +263,7 @@ auto OpenCL::Sum(cl_mem u) -> Scal {
 }
 
 auto OpenCL::Dot(cl_mem u, cl_mem v) -> Scal {
-  kernel_dot_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, v, d_buf_reduce_);
+  Launch("reduce_dot", start_, lead_y_, u, v, d_buf_reduce_);
   d_buf_reduce_.EnqueueRead(queue_);
   queue_.Finish();
   Scal res = 0;
@@ -264,27 +273,81 @@ auto OpenCL::Dot(cl_mem u, cl_mem v) -> Scal {
   return res;
 }
 
+template <class T>
+auto OpenCL::ReadAt(cl_mem u, int ix, int iy) -> T {
+  T res;
+  CLCALL(clEnqueueReadBuffer(queue_, u, CL_TRUE,
+                             sizeof(T) * (start_ + iy * lead_y_ + ix),
+                             sizeof(T), &res, 0, NULL, NULL));
+  return res;
+}
+
+template <class T>
+void OpenCL::WriteAt(cl_mem u, int ix, int iy, T value) {
+  CLCALL(clEnqueueWriteBuffer(queue_, u, CL_TRUE,
+                              sizeof(T) * (start_ + iy * lead_y_ + ix),
+                              sizeof(T), &value, 0, NULL, NULL));
+}
+
 void OpenCL::Fill(cl_mem u, Scal value) {
-  kernel_fill_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                               lead_y_, u, value);
+  Launch("assign_fill", start_, lead_y_, u, value);
+}
+
+void OpenCL::Add(cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_add", start_, lead_y_, u, v, res);
+}
+
+void OpenCL::Sub(cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_sub", start_, lead_y_, u, v, res);
+}
+void OpenCL::Sub(Scal u, cl_mem v, cl_mem res) {
+  Launch("scalar_sub2", start_, lead_y_, u, v, res);
+}
+
+void OpenCL::Mul(cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_mul", start_, lead_y_, u, v, res);
+}
+
+void OpenCL::Div(cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_div", start_, lead_y_, u, v, res);
+}
+
+void OpenCL::Div(Scal u, cl_mem v, cl_mem res) {
+  Launch("scalar_div2", start_, lead_y_, u, v, res);
+}
+
+void OpenCL::Sin(cl_mem u, cl_mem res) {
+  Launch("unary_sin", start_, lead_y_, u, res);
+}
+
+void OpenCL::Cos(cl_mem u, cl_mem res) {
+  Launch("unary_cos", start_, lead_y_, u, res);
+}
+
+void OpenCL::Exp(cl_mem u, cl_mem res) {
+  Launch("unary_exp", start_, lead_y_, u, res);
+}
+
+void OpenCL::Log(cl_mem u, cl_mem res) {
+  Launch("unary_log", start_, lead_y_, u, res);
 }
 
 void OpenCL::Add(cl_mem u, cl_mem v, cl_mem res) {
-  kernel_add_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, v, res);
+  Launch("field_add", start_, lead_y_, u, v, res);
 }
 
 void OpenCL::Sub(cl_mem u, cl_mem v, cl_mem res) {
-  kernel_sub_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, v, res);
+  Launch("field_sub", start_, lead_y_, u, v, res);
 }
 
 void OpenCL::Mul(cl_mem u, cl_mem v, cl_mem res) {
-  kernel_mul_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, v, res);
+  Launch("field_mul", start_, lead_y_, u, v, res);
 }
 
 void OpenCL::Div(cl_mem u, cl_mem v, cl_mem res) {
-  kernel_div_.EnqueueWithArgs(queue_, global_size_, local_size_, start_,
-                              lead_y_, u, v, res);
+  Launch("field_div", start_, lead_y_, u, v, res);
 }
+
+// Instantiations.
+template double OpenCL::ReadAt<double>(cl_mem, int, int);
+template void OpenCL::WriteAt<double>(cl_mem, int, int, double);

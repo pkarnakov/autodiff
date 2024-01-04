@@ -16,6 +16,23 @@ class MatrixCL {
  public:
   using CL = OpenCL;
 
+  class Entry {
+   public:
+    Entry(MatrixCL& matr, int i, int j) : matr_(matr), i_(i), j_(j) {}
+    Entry& operator=(T value) {
+      matr_.write(i_, j_, value);
+      return *this;
+    }
+    operator T() const {
+      return matr_.read(i_, j_);
+    }
+
+   private:
+    MatrixCL& matr_;
+    int i_;
+    int j_;
+  };
+
   // Constructor.
   MatrixCL(size_t nrow, size_t ncol, CL& cl_)
       : cl(cl_), nrow_(nrow), ncol_(ncol), data_(cl.context(), nrow * ncol) {}
@@ -26,6 +43,18 @@ class MatrixCL {
   }
 
   // Element access.
+  T read(int i, int j) const {
+    return cl.ReadAt<T>(data_, i, j);
+  }
+  void write(int i, int j, T value) {
+    return cl.WriteAt(data_, i, j, value);
+  }
+  T operator()(int i, int j) const {
+    return read(i, j);
+  }
+  Entry operator()(int i, int j) {
+    return Entry(*this, i, j);
+  }
   size_t nrow() const {
     return nrow_;
   }
@@ -77,6 +106,26 @@ class MatrixCL {
     cl.Div(data_, other.data_, res.data_);
     return res;
   }
+  MatrixCL operator+(T a) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl.Add(data_, a, res.data_);
+    return res;
+  }
+  MatrixCL operator-(T a) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl.Sub(data_, a, res.data_);
+    return res;
+  }
+  MatrixCL operator*(T a) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl.Mul(data_, a, res.data_);
+    return res;
+  }
+  MatrixCL operator/(T a) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl.Div(data_, a, res.data_);
+    return res;
+  }
 
   // Reduction.
   T sum() const {
@@ -91,6 +140,51 @@ class MatrixCL {
   }
   T max() const {
     return cl.Max(data_);
+  }
+  T min() const {
+    return cl.Min(data_);
+  }
+
+  // Friend functions.
+  friend MatrixCL sin(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Sin(matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL cos(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Cos(matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL exp(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Exp(matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL log(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Log(matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL operator+(T a, const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Add(matr.data_, a, res.data_);
+    return res;
+  }
+  friend MatrixCL operator-(T a, const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Sub(a, matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL operator*(T a, const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Mul(matr.data_, a, res.data_);
+    return res;
+  }
+  friend MatrixCL operator/(T a, const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl.Div(a, matr.data_, res.data_);
+    return res;
   }
 
  private:
