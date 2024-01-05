@@ -219,11 +219,11 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   program_.CreateFromString(kKernelSource, context_, device_);
   d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
   for (std::string name : {
-           "reduce_max",  "reduce_min", "reduce_sum",  "reduce_dot",
-           "assign_fill", "scalar_add", "scalar_sub",  "scalar_sub2",
-           "scalar_mul",  "scalar_div", "scalar_div2", "field_add",
-           "field_sub",   "field_mul",  "field_div",   "unary_sin",
-           "unary_cos",   "unary_exp",  "unary_log",
+           "reduce_max",  "reduce_min", "reduce_sum", "reduce_dot",
+           "assign_fill", "assign_add", "scalar_add", "scalar_sub",
+           "scalar_sub2", "scalar_mul", "scalar_div", "scalar_div2",
+           "field_add",   "field_sub",  "field_mul",  "field_div",
+           "unary_sin",   "unary_cos",  "unary_exp",  "unary_log",
        }) {
     kernels_[name].Create(program_, name);
   }
@@ -291,6 +291,10 @@ void OpenCL::WriteAt(cl_mem u, int ix, int iy, T value) {
 
 void OpenCL::Fill(cl_mem u, Scal value) {
   Launch("assign_fill", start_, lead_y_, u, value);
+}
+
+void OpenCL::AssignAdd(cl_mem u, cl_mem v) {
+  Launch("assign_add", start_, lead_y_, u, v);
 }
 
 void OpenCL::Add(cl_mem u, Scal v, cl_mem res) {

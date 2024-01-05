@@ -42,6 +42,25 @@ struct BaseExtra {
   void Visit(Node*) {}
 };
 
+template <class T>
+struct ClearImpl {
+  static void Clear(T& u) {
+    u = 0;
+  }
+};
+
+template <class T>
+struct ClearImpl<Matrix<T>> {
+  static void Clear(Matrix<T>& u) {
+    u.clear();
+  }
+};
+
+template <class T>
+void Clear(T& u) {
+  ClearImpl<T>::Clear(u);
+};
+
 template <class E>
 class GenericNode;
 
@@ -91,7 +110,7 @@ class Node : public GenericNode<E> {
   void UpdateValue() override = 0;
   void UpdateGrad() override = 0;
   void ClearGrad() override {
-    grad_ = T();
+    Clear(grad_);
   }
   virtual void AddGrad(const T& add) {
     grad_ += add;
@@ -443,7 +462,7 @@ template <class T, class E>
 Tracer<T, E> sum(const Tracer<T, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return x; },
-      [](const T&, const T& du) { return du * T(1); }, "sum")};
+      [](const T&, const T& du) { return du; }, "sum")};
 }
 
 template <class T, class E>
@@ -460,7 +479,7 @@ template <class T, class E>
 Tracer<T, E> mean(const Tracer<T, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, T, E>>(
       tr_x.node(), [](const T& x) { return x; },
-      [](const T&, const T& du) { return du * T(1); }, "mean")};
+      [](const T&, const T& du) { return du; }, "mean")};
 }
 
 template <class T, class E>

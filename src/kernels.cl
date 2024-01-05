@@ -20,6 +20,12 @@ __kernel void assign_fill(int start, int lead_y, __global Scal* u, Scal value) {
   u[i] = value;
 }
 
+__kernel void assign_add(int start, int lead_y, __global Scal* u,
+                         __global const Scal* v) {
+  const size_t i = iglobal(start, lead_y);
+  u[i] += v[i];
+}
+
 ////////////////////////////////////////
 // Reduction operations.
 ////////////////////////////////////////

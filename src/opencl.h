@@ -122,9 +122,11 @@ struct OpenCL {
       Create(context, size, flags);
     }
     Buffer(const Buffer&) = delete;
-    Buffer(Buffer&&) = default;
+    Buffer(Buffer&& other) : handle(other.handle), size_(other.size_) {
+      other.handle = NULL;
+    }
     Buffer& operator=(Buffer&) = delete;
-    Buffer& operator=(Buffer&&) = default;
+    Buffer& operator=(Buffer&& other) = delete;
     void Create(cl_context context, size_t size,
                 cl_mem_flags flags = CL_MEM_READ_WRITE) {
       size_ = size;
@@ -154,7 +156,7 @@ struct OpenCL {
     void EnqueueWrite(cl_command_queue queue, const std::vector<T>& buf) {
       EnqueueWrite(queue, buf.data());
     }
-    void EnqueueCopyFrom(cl_command_queue queue, const Buffer& src) {
+    void EnqueueWriteBuffer(cl_command_queue queue, const Buffer& src) {
       fassert_equal(src.size_, size_);
       CLCALL(clEnqueueCopyBuffer(queue, src, handle, 0, 0, sizeof(T) * size_, 0,
                                  NULL, NULL));
@@ -164,6 +166,7 @@ struct OpenCL {
     }
     void swap(Buffer& other) {
       std::swap(handle, other.handle);
+      std::swap(size_, other.size_);
     }
     cl_mem handle = NULL;
     size_t size_;
@@ -266,6 +269,7 @@ struct OpenCL {
   void WriteAt(cl_mem u, int ix, int iy, T value);
   // Assignment operations.
   void Fill(cl_mem u, Scal value);
+  void AssignAdd(cl_mem u, cl_mem v);
   // Unary operations.
   void Add(cl_mem u, Scal v, cl_mem res);
   void Sub(cl_mem u, Scal v, cl_mem res);

@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -19,14 +20,36 @@ struct TypeName<MatrixCL<T>> {
   inline static const std::string value =
       "MatrixCL<" + TypeName<T>::value + ">";
 };
+template <class T>
+void Clear(MatrixCL<T>& matr) {
+  matr.clear();
+};
+template <class T, class E>
+Tracer<T, E> sum(const Tracer<MatrixCL<T>, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, MatrixCL<T>, E>>(
+      tr_x.node(), [](const MatrixCL<T>& x) { return x.sum(); },
+      [](const MatrixCL<T>& x, const T& du) {
+        return du * MatrixCL<T>::ones_like(x);
+      },
+      "sum")};
+}
+template <class T, class E>
+Tracer<T, E> mean(const Tracer<MatrixCL<T>, E>& tr_x) {
+  return {std::make_shared<NodeUnary<T, MatrixCL<T>, E>>(
+      tr_x.node(), [](const MatrixCL<T>& x) { return x.mean(); },
+      [](const MatrixCL<T>& x, const T& du) {
+        return du * MatrixCL<T>::ones_like(x) / x.size();
+      },
+      "mean")};
+}
 
 using CL = OpenCL;
 
-static CL Init() {
+static CL Init(size_t nx) {
   CL::Config config;
   config.platform = 0;
   config.verbose = 0;
-  config.global_size = {32, 32};
+  config.global_size = {nx, nx};
   CL cl(config);
   std::cout << "Device: " << cl.device_info_.name << std::endl;
   std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
@@ -89,6 +112,11 @@ static void TestMatrix(CL& cl) {
   PE(iota(2, 2));
   PE(iota(2, 2) = 17);
   PE(iota(2, 2));
+  PE((u = v, u.mean()));
+  PE((u += v, u.mean()));
+  MatrixCL<Scal> w;
+  w = u;
+  PE((w = u, w.mean()));
 }
 
 struct Extra : public BaseExtra {
@@ -104,6 +132,7 @@ template <class Scal = double>
 static void TestReverse(CL& cl) {
   std::cout << '\n' << __func__ << std::endl;
   const auto pi = M_PI;
+  auto Str = [](auto m) { return MatrixToStr(m, 3, 1); };
 
   const size_t nrow = cl.global_size_[0];
   const size_t ncol = cl.global_size_[1];
@@ -114,15 +143,15 @@ static void TestReverse(CL& cl) {
   Var<MatrixCL<Scal>> var_y(std::move(matr_y), "y");
   PE(var_x);
   PE(var_y);
-  /*
   auto x = MakeTracer<Extra>(var_x);
   auto y = MakeTracer<Extra>(var_y);
+
   auto eval = [&](auto& e, std::string path) {
     const auto order = e.GetFowardOrder();
     e.UpdateGrad(order);
     PE(e.value());
-    PE(x.grad());
-    PE(y.grad());
+    PEN(Str(x.grad()));
+    PEN(Str(y.grad()));
     std::cout << path << std::endl;
     std::ofstream fout(path);
     Extra extra(fout);
@@ -133,12 +162,11 @@ static void TestReverse(CL& cl) {
   eval(e1, "reverse_cl_1.gv");
   auto e2 = sum(sin(x + y));
   eval(e2, "reverse_cl_2.gv");
-  */
 }
 
 int main() {
-  auto cl = Init();
-  // TestBasic(cl);
-  // TestMatrix(cl);
+  auto cl = Init(16);
+  TestBasic(cl);
+  TestMatrix(cl);
   TestReverse(cl);
 }

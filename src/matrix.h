@@ -23,21 +23,21 @@ T tanh(T x) {
 template <class T>
 class Matrix {
  public:
+  template <class U>
+  friend class Matrix;
+
   // Constructor.
   Matrix() : nrow_(0), ncol_(0) {}
   explicit Matrix(size_t n) : Matrix(n, n) {}
   Matrix(size_t nrow, size_t ncol)
       : nrow_(nrow), ncol_(ncol), data_(nrow * ncol) {}
-  Matrix(size_t nrow, size_t ncol, T a)
-      : nrow_(nrow), ncol_(ncol), data_(nrow * ncol, a) {}
+  Matrix(size_t nrow, size_t ncol, T value)
+      : nrow_(nrow), ncol_(ncol), data_(nrow * ncol, value) {}
   template <class U>
   Matrix(const Matrix<U>& other)
       : nrow_(other.nrow_),
         ncol_(other.ncol_),
         data_(other.data_.begin(), other.data_.end()) {}
-
-  template <class U>
-  friend class Matrix;
 
   // Element access.
   T& operator()(size_t i, size_t j) {
@@ -107,7 +107,10 @@ class Matrix {
     return *this;
   }
   void fill(const T& value) {
-    std::fill(data_.begin(), data_.end());
+    std::fill(data_.begin(), data_.end(), value);
+  }
+  void clear() {
+    fill(T(0));
   }
 
   // Member functions.

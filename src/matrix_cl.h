@@ -15,6 +15,8 @@ template <class T>
 class MatrixCL {
  public:
   using CL = OpenCL;
+  template <class U>
+  friend class Matrix;
 
   class Entry {
    public:
@@ -34,20 +36,35 @@ class MatrixCL {
   };
 
   // Constructor.
-  MatrixCL(size_t nrow, size_t ncol, CL& cl_)
-      : cl(cl_), nrow_(nrow), ncol_(ncol), data_(cl.context(), nrow * ncol) {}
+  MatrixCL() = default;
+  MatrixCL(size_t nrow, size_t ncol, CL* cl_)
+      : cl(cl_),
+        nrow_(nrow),
+        ncol_(ncol),
+        data_(cl->context(), nrow_ * ncol_) {}
+  MatrixCL(size_t nrow, size_t ncol, CL& cl_) : MatrixCL(nrow, ncol, &cl_) {}
+  MatrixCL(size_t nrow, size_t ncol, T value, CL* cl_)
+      : MatrixCL(nrow, ncol, cl_) {
+    this->fill(value);
+  }
+  MatrixCL(const MatrixCL& other)
+      : MatrixCL(other.nrow_, other.ncol_, other.cl) {
+    fassert(data_.handle);
+    fassert(other.data_.handle);
+    data_.EnqueueWriteBuffer(cl->queue(), other.data_);
+  }
   MatrixCL(MatrixCL&&) = default;
   MatrixCL(const Matrix<T>& other, CL& cl_)
       : MatrixCL(other.nrow(), other.ncol(), cl_) {
-    data_.EnqueueWrite(cl.queue(), other.data());
+    data_.EnqueueWrite(cl->queue(), other.data());
   }
 
   // Element access.
   T read(int i, int j) const {
-    return cl.ReadAt<T>(data_, i, j);
+    return cl->ReadAt<T>(data_, i, j);
   }
   void write(int i, int j, T value) {
-    return cl.WriteAt(data_, i, j, value);
+    return cl->WriteAt(data_, i, j, value);
   }
   T operator()(int i, int j) const {
     return read(i, j);
@@ -66,129 +83,181 @@ class MatrixCL {
   }
 
   // Assignment.
-  MatrixCL& operator=(const MatrixCL&) = delete;
-  void fill(T value) const {
-    return cl.Fill(data_, value);
+  MatrixCL& operator=(const MatrixCL& other) {
+    fassert(other.cl, "Can't assign add an empty matrix");
+    if (cl == nullptr) {
+      cl = other.cl;
+      nrow_ = other.nrow_;
+      ncol_ = other.ncol_;
+      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      data_.swap(buf);
+    }
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    fassert(data_.handle);
+    fassert(other.data_.handle);
+    data_.EnqueueWriteBuffer(cl->queue(), other.data_);
+    return *this;
   }
-
+  MatrixCL& operator+=(const MatrixCL& other) {
+    fassert(other.cl, "Can't assign add an empty matrix");
+    if (cl == nullptr) {
+      cl = other.cl;
+      nrow_ = other.nrow_;
+      ncol_ = other.ncol_;
+      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      data_.swap(buf);
+    }
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    cl->AssignAdd(data_, other.data_);
+    return *this;
+  }
+  void fill(T value) const {
+    return cl->Fill(data_, value);
+  }
+  void clear() const {
+    if (cl) {
+      cl->Fill(data_, T(0));
+    }
+  }
   explicit operator Matrix<T>() const {
     Matrix<T> res(nrow_, ncol_, 2);
-    data_.EnqueueRead(cl.queue(), res.data());
+    data_.EnqueueRead(cl->queue(), res.data());
     return res;
   }
 
   // Member functions.
+  MatrixCL operator-() const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl->Mul(data_, -1, res.data_);
+    return res;
+  }
   MatrixCL operator+(const MatrixCL& other) const {
+    fassert_equal(cl, other.cl);
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Add(data_, other.data_, res.data_);
+    cl->Add(data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator-(const MatrixCL& other) const {
+    fassert_equal(cl, other.cl);
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Sub(data_, other.data_, res.data_);
+    cl->Sub(data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator*(const MatrixCL& other) const {
+    fassert_equal(cl, other.cl);
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Mul(data_, other.data_, res.data_);
+    cl->Mul(data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator/(const MatrixCL& other) const {
+    fassert_equal(cl, other.cl);
     fassert_equal(nrow_, other.nrow_);
     fassert_equal(ncol_, other.ncol_);
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Div(data_, other.data_, res.data_);
+    cl->Div(data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator+(T a) const {
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Add(data_, a, res.data_);
+    cl->Add(data_, a, res.data_);
     return res;
   }
   MatrixCL operator-(T a) const {
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Sub(data_, a, res.data_);
+    cl->Sub(data_, a, res.data_);
     return res;
   }
   MatrixCL operator*(T a) const {
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Mul(data_, a, res.data_);
+    cl->Mul(data_, a, res.data_);
     return res;
   }
   MatrixCL operator/(T a) const {
     MatrixCL res(nrow_, ncol_, cl);
-    cl.Div(data_, a, res.data_);
+    cl->Div(data_, a, res.data_);
     return res;
   }
 
   // Reduction.
   T sum() const {
-    return cl.Sum(data_);
+    return cl->Sum(data_);
   }
   T mean() const {
     return sum() / size();
   }
   T dot(const MatrixCL& other) const {
-    fassert_equal(&cl, &other.cl);
-    return cl.Dot(data_, other.data_);
+    fassert_equal(cl, other.cl);
+    return cl->Dot(data_, other.data_);
   }
   T max() const {
-    return cl.Max(data_);
+    return cl->Max(data_);
   }
   T min() const {
-    return cl.Min(data_);
+    return cl->Min(data_);
   }
 
   // Friend functions.
   friend MatrixCL sin(const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Sin(matr.data_, res.data_);
+    matr.cl->Sin(matr.data_, res.data_);
     return res;
   }
   friend MatrixCL cos(const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Cos(matr.data_, res.data_);
+    matr.cl->Cos(matr.data_, res.data_);
     return res;
   }
   friend MatrixCL exp(const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Exp(matr.data_, res.data_);
+    matr.cl->Exp(matr.data_, res.data_);
     return res;
   }
   friend MatrixCL log(const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Log(matr.data_, res.data_);
+    matr.cl->Log(matr.data_, res.data_);
     return res;
   }
   friend MatrixCL operator+(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Add(matr.data_, a, res.data_);
+    matr.cl->Add(matr.data_, a, res.data_);
     return res;
   }
   friend MatrixCL operator-(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Sub(a, matr.data_, res.data_);
+    matr.cl->Sub(a, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL operator*(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Mul(matr.data_, a, res.data_);
+    matr.cl->Mul(matr.data_, a, res.data_);
     return res;
   }
   friend MatrixCL operator/(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl.Div(a, matr.data_, res.data_);
+    matr.cl->Div(a, matr.data_, res.data_);
     return res;
   }
 
+  // Static functions.
+  template <class U>
+  static MatrixCL zeros_like(const MatrixCL<U>& other) {
+    return MatrixCL(other.nrow_, other.ncol_, T(0), other.cl);
+  }
+  template <class U>
+  static MatrixCL ones_like(const MatrixCL<U>& other) {
+    return MatrixCL(other.nrow_, other.ncol_, T(1), other.cl);
+  }
+
  private:
-  CL& cl;
+  CL* cl = nullptr;
   size_t nrow_;
   size_t ncol_;
   CL::Buffer<T> data_;
