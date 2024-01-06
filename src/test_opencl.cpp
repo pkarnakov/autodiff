@@ -7,53 +7,25 @@
 #include "matrix_cl.h"
 #include "opencl.h"
 #include "reverse.h"
+#include "reverse_cl.h"
 
 // Print and evaluate.
 #define PE(a) std::cout << #a << ": " << (a) << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << (a) << '\n' << std::endl;
 
-////////////////////////////////////////
-// Specializations for reverse.h
-////////////////////////////////////////
-template <class T>
-struct TypeName<MatrixCL<T>> {
-  inline static const std::string value =
-      "MatrixCL<" + TypeName<T>::value + ">";
-};
-template <class T>
-void Clear(MatrixCL<T>& matr) {
-  matr.clear();
-};
-template <class T, class E>
-Tracer<T, E> sum(const Tracer<MatrixCL<T>, E>& tr_x) {
-  return {std::make_shared<NodeUnary<T, MatrixCL<T>, E>>(
-      tr_x.node(), [](const MatrixCL<T>& x) { return x.sum(); },
-      [](const MatrixCL<T>& x, const T& du) {
-        return du * MatrixCL<T>::ones_like(x);
-      },
-      "sum")};
-}
-template <class T, class E>
-Tracer<T, E> mean(const Tracer<MatrixCL<T>, E>& tr_x) {
-  return {std::make_shared<NodeUnary<T, MatrixCL<T>, E>>(
-      tr_x.node(), [](const MatrixCL<T>& x) { return x.mean(); },
-      [](const MatrixCL<T>& x, const T& du) {
-        return du * MatrixCL<T>::ones_like(x) / x.size();
-      },
-      "mean")};
-}
-
 using CL = OpenCL;
 
-static CL Init(size_t nx) {
+static CL Init(size_t nx, bool verbose = false) {
   CL::Config config;
   config.platform = 0;
   config.verbose = 0;
   config.global_size = {nx, nx};
   CL cl(config);
-  std::cout << "Device: " << cl.device_info_.name << std::endl;
-  std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
-            << std::endl;
+  if (verbose) {
+    std::cout << "Device: " << cl.device_info_.name << std::endl;
+    std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
+              << std::endl;
+  }
   return cl;
 }
 
@@ -82,6 +54,7 @@ static void TestBasic(CL& cl) {
 template <class Scal = double>
 static void TestMatrix(CL& cl) {
   std::cout << '\n' << __func__ << std::endl;
+  auto Str = [](auto m) { return MatrixToStr(m, 3, 3); };
   const size_t nrow = cl.global_size_[0];
   const size_t ncol = cl.global_size_[1];
   MatrixCL<Scal> u(nrow, ncol, cl);
@@ -117,6 +90,13 @@ static void TestMatrix(CL& cl) {
   MatrixCL<Scal> w;
   w = u;
   PE((w = u, w.mean()));
+  PEN(Str(iota.roll(0, 0)));
+  PEN(Str(iota.roll(0, 1)));
+  PEN(Str(iota.roll(1, 0)));
+  PEN(Str(iota.roll(1, 1)));
+  PEN(Str(iota.roll(0, -1)));
+  PEN(Str(iota.roll(-1, 0)));
+  PEN(Str(iota.roll(-1, -1)));
 }
 
 struct Extra : public BaseExtra {
@@ -165,8 +145,13 @@ static void TestReverse(CL& cl) {
 }
 
 int main() {
-  auto cl = Init(16);
-  TestBasic(cl);
-  TestMatrix(cl);
-  TestReverse(cl);
+  {
+    auto cl = Init(16, true);
+    TestBasic(cl);
+    TestReverse(cl);
+  }
+  {
+    auto cl = Init(4, true);
+    TestMatrix(cl);
+  }
 }

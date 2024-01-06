@@ -219,11 +219,12 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   program_.CreateFromString(kKernelSource, context_, device_);
   d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
   for (std::string name : {
-           "reduce_max",  "reduce_min", "reduce_sum", "reduce_dot",
-           "assign_fill", "assign_add", "scalar_add", "scalar_sub",
-           "scalar_sub2", "scalar_mul", "scalar_div", "scalar_div2",
-           "field_add",   "field_sub",  "field_mul",  "field_div",
-           "unary_sin",   "unary_cos",  "unary_exp",  "unary_log",
+           "reduce_max",  "reduce_min",  "reduce_sum",  "reduce_dot",
+           "assign_fill", "assign_add",  "assign_sub",  "assign_subarray",
+           "scalar_add",  "scalar_sub",  "scalar_sub2", "scalar_mul",
+           "scalar_div",  "scalar_div2", "field_add",   "field_sub",
+           "field_mul",   "field_div",   "unary_sin",   "unary_cos",
+           "unary_exp",   "unary_log",   "unary_sqr",   "unary_sqrt",
        }) {
     kernels_[name].Create(program_, name);
   }
@@ -297,6 +298,15 @@ void OpenCL::AssignAdd(cl_mem u, cl_mem v) {
   Launch("assign_add", start_, lead_y_, u, v);
 }
 
+void OpenCL::AssignSub(cl_mem u, cl_mem v) {
+  Launch("assign_sub", start_, lead_y_, u, v);
+}
+
+void OpenCL::AssignSubarray(cl_mem u, cl_mem v, MInt iu, MInt iv, MInt icnt) {
+  Launch("assign_subarray", start_, lead_y_, u, v, iu[0], iu[1], iv[0], iv[1],
+         icnt[0], icnt[1]);
+}
+
 void OpenCL::Add(cl_mem u, Scal v, cl_mem res) {
   Launch("scalar_add", start_, lead_y_, u, v, res);
 }
@@ -334,6 +344,14 @@ void OpenCL::Exp(cl_mem u, cl_mem res) {
 
 void OpenCL::Log(cl_mem u, cl_mem res) {
   Launch("unary_log", start_, lead_y_, u, res);
+}
+
+void OpenCL::Sqr(cl_mem u, cl_mem res) {
+  Launch("unary_sqr", start_, lead_y_, u, res);
+}
+
+void OpenCL::Sqrt(cl_mem u, cl_mem res) {
+  Launch("unary_sqrt", start_, lead_y_, u, res);
 }
 
 void OpenCL::Add(cl_mem u, cl_mem v, cl_mem res) {

@@ -31,6 +31,7 @@ struct OpenCL {
   using Scal = double;
   static constexpr int kDim = 2;
   using MSize = std::array<size_t, kDim>;
+  using MInt = std::array<int, kDim>;
 
   struct Config {
     int platform = 0;
@@ -270,6 +271,8 @@ struct OpenCL {
   // Assignment operations.
   void Fill(cl_mem u, Scal value);
   void AssignAdd(cl_mem u, cl_mem v);
+  void AssignSub(cl_mem u, cl_mem v);
+  void AssignSubarray(cl_mem u, cl_mem v, MInt iu, MInt iv, MInt icnt);
   // Unary operations.
   void Add(cl_mem u, Scal v, cl_mem res);
   void Sub(cl_mem u, Scal v, cl_mem res);
@@ -281,6 +284,8 @@ struct OpenCL {
   void Cos(cl_mem v, cl_mem res);
   void Exp(cl_mem v, cl_mem res);
   void Log(cl_mem v, cl_mem res);
+  void Sqr(cl_mem v, cl_mem res);
+  void Sqrt(cl_mem v, cl_mem res);
   // Binary operations.
   void Add(cl_mem u, cl_mem v, cl_mem res);
   void Sub(cl_mem u, cl_mem v, cl_mem res);

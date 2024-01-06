@@ -113,6 +113,20 @@ class MatrixCL {
     cl->AssignAdd(data_, other.data_);
     return *this;
   }
+  MatrixCL& operator-=(const MatrixCL& other) {
+    fassert(other.cl, "Can't assign add an empty matrix");
+    if (cl == nullptr) {
+      cl = other.cl;
+      nrow_ = other.nrow_;
+      ncol_ = other.ncol_;
+      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      data_.swap(buf);
+    }
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
+    cl->AssignSub(data_, other.data_);
+    return *this;
+  }
   void fill(T value) const {
     return cl->Fill(data_, value);
   }
@@ -185,6 +199,59 @@ class MatrixCL {
     cl->Div(data_, a, res.data_);
     return res;
   }
+  MatrixCL roll(int shift_row, int shift_col) const {
+    using Idx = std::array<int, 2>;
+    MatrixCL res(nrow_, ncol_, cl);
+    if (nrow_ == 0 || ncol_ == 0) {
+      return res;
+    }
+    const Idx shape = {int(nrow_), int(ncol_)};
+    // Rectangle to copy:
+    Idx idst;  // Starting position in dst.
+    Idx isrc;  // Starting position in src.
+    Idx icnt;  // Elements count.
+
+    // Flips the rectangle along axis k.
+    auto flip = [&](int k) {
+      idst[k] = (idst[k] == 0 ? icnt[k] : 0);
+      isrc[k] = (isrc[k] == 0 ? icnt[k] : 0);
+      icnt[k] = shape[k] - icnt[k];
+    };
+    // Copies the rectangle from src to dst.
+    auto copy = [&]() {
+      if (icnt[0] == 0 || icnt[1] == 0) {
+        return;
+      }
+      cl->AssignSubarray(res.data_, data_, {idst[1], idst[0]},
+                         {isrc[1], isrc[0]}, {icnt[1], icnt[0]});
+    };
+
+    // Normalize shift to positive values and select one rectangle to copy.
+    int shift[2] = {shift_row, shift_col};
+    for (auto k : {0, 1}) {
+      if (shift[k] < 0) {
+        shift[k] = shape[k] - (-shift[k]) % shape[k];
+      } else {
+        shift[k] = shift[k] % shape[k];
+      }
+      idst[k] = shift[k];
+      isrc[k] = 0;
+      icnt[k] = shape[k] - shift[k];
+    }
+
+    copy();
+
+    flip(0);
+    copy();
+
+    flip(1);
+    copy();
+
+    flip(0);
+    copy();
+
+    return res;
+  }
 
   // Reduction.
   T sum() const {
@@ -225,6 +292,16 @@ class MatrixCL {
     matr.cl->Log(matr.data_, res.data_);
     return res;
   }
+  friend MatrixCL sqr(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl->Sqr(matr.data_, res.data_);
+    return res;
+  }
+  friend MatrixCL sqrt(const MatrixCL& matr) {
+    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
+    matr.cl->Sqrt(matr.data_, res.data_);
+    return res;
+  }
   friend MatrixCL operator+(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
     matr.cl->Add(matr.data_, a, res.data_);
@@ -245,8 +322,14 @@ class MatrixCL {
     matr.cl->Div(a, matr.data_, res.data_);
     return res;
   }
+  friend MatrixCL roll(const MatrixCL& matr, int shift_row, int shift_col) {
+    return matr.roll(shift_row, shift_col);
+  }
 
   // Static functions.
+  static MatrixCL zeros(size_t nrow, size_t ncol, CL& cl) {
+    return MatrixCL(nrow, ncol, T(0), &cl);
+  }
   template <class U>
   static MatrixCL zeros_like(const MatrixCL<U>& other) {
     return MatrixCL(other.nrow_, other.ncol_, T(0), other.cl);

@@ -10,9 +10,10 @@
 
 namespace optimizer {
 
-template <class Scal>
+template <class Scal, class M = Matrix<Scal>>
 class Adam {
  public:
+  using Matrix = M;
   struct Config {
     int epochs = 0;
     Scal lr = 1e-2;
@@ -20,16 +21,16 @@ class Adam {
     Scal beta2 = 0.999;
     Scal epsilon = 1e-7;
   };
-  static void Run(const Config& config, const std::vector<Matrix<Scal>*>& vars,
-                  const std::vector<const Matrix<Scal>*>& grads,
+  static void Run(const Config& config, const std::vector<Matrix*>& vars,
+                  const std::vector<const Matrix*>& grads,
                   std::function<void()> update_grads,
                   std::function<void(int)> callback) {
     fassert_equal(vars.size(), grads.size());
-    std::vector<Matrix<Scal>> mm;
-    std::vector<Matrix<Scal>> vv;
+    std::vector<Matrix> mm;
+    std::vector<Matrix> vv;
     for (auto* x : vars) {
-      mm.emplace_back(Matrix<Scal>::zeros_like(*x));
-      vv.emplace_back(Matrix<Scal>::zeros_like(*x));
+      mm.emplace_back(Matrix::zeros_like(*x));
+      vv.emplace_back(Matrix::zeros_like(*x));
     }
 
     callback(0);

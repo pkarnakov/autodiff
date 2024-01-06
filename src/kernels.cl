@@ -26,6 +26,23 @@ __kernel void assign_add(int start, int lead_y, __global Scal* u,
   u[i] += v[i];
 }
 
+__kernel void assign_sub(int start, int lead_y, __global Scal* u,
+                         __global const Scal* v) {
+  const size_t i = iglobal(start, lead_y);
+  u[i] -= v[i];
+}
+
+__kernel void assign_subarray(int start, int lead_y, __global Scal* u,
+                              __global const Scal* v, int ix_u, int iy_u,
+                              int ix_v, int iy_v, int ix_cnt, int iy_cnt) {
+  const size_t ix = get_global_id(0);
+  const size_t iy = get_global_id(1);
+  if (ix < ix_cnt && iy < iy_cnt) {
+    u[start + (iy_u + iy) * lead_y + (ix_u + ix)] +=
+        v[start + (iy_v + iy) * lead_y + (ix_v + ix)];
+  }
+}
+
 ////////////////////////////////////////
 // Reduction operations.
 ////////////////////////////////////////
@@ -116,6 +133,18 @@ __kernel void unary_log(int start, int lead_y, __global const Scal* u,
                         __global Scal* res) {
   const size_t i = iglobal(start, lead_y);
   res[i] = log(u[i]);
+}
+
+__kernel void unary_sqr(int start, int lead_y, __global const Scal* u,
+                        __global Scal* res) {
+  const size_t i = iglobal(start, lead_y);
+  res[i] = u[i] * u[i];
+}
+
+__kernel void unary_sqrt(int start, int lead_y, __global const Scal* u,
+                        __global Scal* res) {
+  const size_t i = iglobal(start, lead_y);
+  res[i] = sqrt(u[i]);
 }
 
 ////////////////////////////////////////

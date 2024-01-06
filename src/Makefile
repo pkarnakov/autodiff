@@ -9,9 +9,16 @@ all: \
 	$(BUILD)/test_optimizer \
 	$(BUILD)/test_opencl \
 	$(BUILD)/poisson \
+	$(BUILD)/poisson_cl \
 
 run_poisson: $(BUILD)/poisson
 	$(BUILD)/poisson
+	make poisson.pdf
+	./plot_field.py uref.dat uref.png
+	make plot_u
+
+run_poisson_cl: $(BUILD)/poisson_cl
+	$(BUILD)/poisson_cl
 	make poisson.pdf
 	./plot_field.py uref.dat uref.png
 	make plot_u
@@ -45,6 +52,9 @@ $(BUILD)/test_opencl: test_opencl.cpp opencl.cpp opencl.h matrix.h matrix_cl.h m
 
 $(BUILD)/poisson: poisson.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
+
+$(BUILD)/poisson_cl: poisson_cl.cpp opencl.cpp macros.h reverse.h opencl.h matrix_cl.h kernels.inc | $(BUILD)
+	$(CXX) $(CXXFLAGS) -lOpenCL $< opencl.cpp -o "$@"
 
 kernels.inc: kernels.cl
 	./kernels.gen "$<" "$@"
