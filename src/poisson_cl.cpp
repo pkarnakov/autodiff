@@ -156,6 +156,13 @@ static void RunPoisson(Config config) {
     grads.push_back(&uu[i].grad());
   }
   Adam::Run(adam_config, vars, grads, update_grads, callback);
+
+  auto* profiler = Profiler::GetInstance();
+  for (auto& pair : profiler->GetRecords()) {
+    std::cout << '\n'
+              << pair.first << '\n'
+              << to_string(pair.second) << std::endl;
+  }
 }
 
 int main() {

@@ -14,9 +14,12 @@
 #include <CL/cl_ext.h>
 
 #include "macros.h"
+#include "profiler.h"
 
 #define CLCALL(x)                                                     \
   do {                                                                \
+    auto* profiler = Profiler::GetInstance();                         \
+    auto timer = profiler->MakeTimer(#x);                             \
     cl_int CLCALL_error;                                              \
     CLCALL_error = x;                                                 \
     if (CLCALL_error != CL_SUCCESS) {                                 \

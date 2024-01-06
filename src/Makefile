@@ -53,7 +53,7 @@ $(BUILD)/test_opencl: test_opencl.cpp opencl.cpp opencl.h matrix.h matrix_cl.h m
 $(BUILD)/poisson: poisson.cpp macros.h reverse.h matrix.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) $< -o "$@"
 
-$(BUILD)/poisson_cl: poisson_cl.cpp opencl.cpp macros.h reverse.h opencl.h matrix_cl.h kernels.inc | $(BUILD)
+$(BUILD)/poisson_cl: poisson_cl.cpp opencl.cpp macros.h reverse.h opencl.h matrix_cl.h kernels.inc profiler.h | $(BUILD)
 	$(CXX) $(CXXFLAGS) -lOpenCL $< opencl.cpp -o "$@"
 
 kernels.inc: kernels.cl
