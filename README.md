@@ -1,8 +1,29 @@
 # autodiff
 
+## Clone
+
+```
+git clone https://github.com/pkarnakov/autodiff.git
+```
+
+## Pages
+
 <https://pkarnakov.github.io/autodiff>
 
-## Dual
+## Requirements
+
+* C++17 compiler
+* CMake
+
+## Build
+
+```
+make
+```
+
+## Applications
+
+### Dual
 
 [`test_dual.cpp`](src/test_dual.cpp)
 
@@ -11,7 +32,7 @@ cd src
 make build/test_dual && build/test_dual
 ```
 
-## Reverse
+### Reverse
 
 [`test_reverse.cpp`](src/test_reverse.cpp)
 
@@ -22,7 +43,7 @@ make build/test_reverse && build/test_reverse && make reverse_scal1.pdf
 
 <img src="https://pkarnakov.github.io/autodiff/media/reverse_scal1.svg" height="200px">
 
-## Poisson
+### Poisson
 
 [`poisson.cpp`](src/poisson.cpp)
 
@@ -35,8 +56,10 @@ make run_poisson
 :---:|:--:|:---:
 <img src="https://pkarnakov.github.io/autodiff/media/poisson/poisson.svg" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson/u_00010.png" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson/uref.png" height="200px">
 
-## Poisson multigrid
+### Poisson multigrid
 
 | graph | inferred| reference |
 :---:|:--:|:---:
 <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/poisson.svg" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/u_00010.png" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/uref.png" height="200px">
+
+

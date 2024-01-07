@@ -1,0 +1,8 @@
+/build
+/pages
+
+*.gv
+*.pdf
+*.svg
+*.png
+*.dat

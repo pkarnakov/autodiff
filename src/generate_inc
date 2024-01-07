@@ -1,7 +1,9 @@
 #!/bin/sh -eu
 
-in=${1:-"kernels.cl"}
-out=${2:-"kernels.inc"}
+in=$1
+out=$2
+
+test -f "$in"
 
 cat > "$out" << EOS
 R"EOF(
