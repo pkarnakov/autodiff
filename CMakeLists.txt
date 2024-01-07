@@ -20,6 +20,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(${SRC})
+
 if (BUILD_POISSON)
   set(T "poisson")
   add_executable(poisson src/poisson.cpp)
@@ -31,13 +34,14 @@ endif()
 
 if (BUILD_TESTS)
   enable_testing()
+  set(TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   set(Tests test_dual test_matrix test_optimizer test_reverse)
   if (USE_OPENCL)
     list(APPEND Tests test_opencl)
   endif()
   foreach(T ${Tests})
-    add_executable(${T} src/${T}.cpp)
-    add_test(NAME ${T} COMMAND ${T})
+    add_executable(${T} ${TESTDIR}/${T}.cpp)
+    add_test(NAME ${T} COMMAND ${TESTDIR}/test ${CMAKE_BINARY_DIR}/${T} ${TESTDIR}/ref)
   endforeach()
   if (USE_OPENCL)
     target_link_libraries(test_opencl opencl)
@@ -52,7 +56,6 @@ if (USE_OPENCL)
   set(T opencl)
   add_library(${T} src/opencl.cpp)
 
-  set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
   add_custom_command(
     OUTPUT  ${SRC}/kernels.inc
     COMMAND ./generate_inc kernels.cl kernels.inc

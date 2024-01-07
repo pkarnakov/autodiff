@@ -22,8 +22,8 @@ static CL Init(size_t nx, bool verbose = false) {
   config.global_size = {nx, nx};
   CL cl(config);
   if (verbose) {
-    std::cout << "Device: " << cl.device_info_.name << std::endl;
-    std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
+    std::cerr << "Device: " << cl.device_info_.name << std::endl;
+    std::cerr << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
               << std::endl;
   }
   return cl;

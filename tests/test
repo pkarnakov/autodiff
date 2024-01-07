@@ -1,0 +1,15 @@
+#!/bin/sh -eu
+
+exe=${1}
+refdir=${2}
+name=$(basename "$exe")
+out="out/${name}.out"
+ref="$refdir/${name}.out"
+
+mkdir -p out ref
+
+$exe > "$out"
+if ! [ -f "$ref" ] ; then
+  cp "$out" "$ref"
+fi
+diff -q "$ref" "$out"

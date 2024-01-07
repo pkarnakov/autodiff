@@ -1,0 +1,45 @@
+
+TestDual
+a: [1, 1]
+b: [2, 1]
+a + 1: [2, 1]
+a + 1: [2, 1]
+a - 1: [0, 1]
+a * 2: [2, 2]
+a / 2: [0.5, 0.5]
+1 + a: [2, 1]
+1 - a: [0, -1]
+2 * a: [2, 2]
+2 / a: [2, -2]
+a + b: [3, 2]
+a - b: [-1, 0]
+a * b: [2, 3]
+a / b: [0.5, 0.25]
+sin(a): [0.841471, 0.540302]
+cos(a): [0.540302, -0.841471]
+exp(a): [2.71828, 2.71828]
+log(a): [0, 1]
+pow(a, 4.5): [1, 4.5]
+tanh(a): [0.761594, 0.419974]
+f_tanh(a, b): [0.462117, 0.589836]
+f_if(a, b): [2, 3]
+abs(b): [2, 1]
+sin(SeedDual(1.23)): [0.9424888019316975, 0.3342377271245026]
+approx_sin(SeedDual(1.23)): [0.9424888019350007, 0.3342377271232451]
+
+TestNested
+x: 0
+f(x): 0
+fx(x): 0
+fxx(x): 0
+fxxx(x): 6
+
+TestConfusion
+deriv(Dy_naive, 1, 1): 2
+deriv(Dy_tagged, 1, 1): 1
+
+TestDualMatrix
+(ones + x).sum().grad(): 9
+(ones.sum() + x).grad(): 1
+((ones * x) * (ones * x))(0, 0).grad(): 2
+((ones * x).matmul(ones * x))(0, 0).grad(): 6
