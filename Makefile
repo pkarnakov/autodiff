@@ -34,5 +34,8 @@ run_poisson: $(BUILD)/poisson
 clean:
 	rm -rf $(BUILD)
 
+test:
+	cd $(BUILD) && ctest -j`nproc --all`
+
 .SUFFIXES:
-.PHONY: all clean cleandata run_poisson plot_u
+.PHONY: all clean test run_poisson plot_u
