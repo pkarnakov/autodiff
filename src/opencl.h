@@ -332,6 +332,5 @@ struct OpenCL {
   MSize global_size_;
   MSize local_size_;
   size_t ngroups_;
-  int start_;   // offset of first element of inner cells
   int lead_y_;  // leading dimension in y, factor before y in linear index
 };
