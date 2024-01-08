@@ -149,6 +149,20 @@ __kernel void unary_sqrt(int lead_y, __global const Scal* u,
   res[i] = sqrt(u[i]);
 }
 
+// shift_x and shift_y must be within [0, nx - 1], [0, ny - 1].
+__kernel void unary_roll(int lead_y, __global const Scal* u, int shift_x,
+                         int shift_y, __global Scal* res) {
+  const size_t nx = get_global_size(0);
+  const size_t ny = get_global_size(1);
+  const size_t ix = get_global_id(0);
+  const size_t iy = get_global_id(1);
+  const size_t ixs = (ix < shift_x ? ix + nx - shift_x : ix - shift_x);
+  const size_t iys = (iy < shift_y ? iy + ny - shift_y : iy - shift_y);
+  const size_t i = iglobal_ixy(lead_y, ix, iy);
+  const size_t is = iglobal_ixy(lead_y, ixs, iys);
+  res[i] = u[is];
+}
+
 __kernel void unary_conv(int lead_y, __global const Scal* u,  //
                          Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
                          __global Scal* res) {

@@ -224,7 +224,7 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
            "scalar_div",  "scalar_div2", "field_add",   "field_sub",
            "field_mul",   "field_div",   "unary_sin",   "unary_cos",
            "unary_exp",   "unary_log",   "unary_sqr",   "unary_sqrt",
-           "unary_conv",
+           "unary_roll",  "unary_conv",
        }) {
     kernels_[name].Create(program_, name);
   }
@@ -352,6 +352,20 @@ void OpenCL::Sqr(cl_mem u, cl_mem res) {
 
 void OpenCL::Sqrt(cl_mem u, cl_mem res) {
   Launch("unary_sqrt", lead_y_, u, res);
+}
+
+void OpenCL::Roll(cl_mem u, int shift_x, int shift_y, cl_mem res) {
+  const int nx = global_size_[0];
+  const int ny = global_size_[1];
+  shift_x = shift_x % nx;
+  shift_y = shift_y % ny;
+  if (shift_x < 0) {
+    shift_x += nx;
+  }
+  if (shift_y < 0) {
+    shift_y += ny;
+  }
+  Launch("unary_roll", lead_y_, u, shift_x, shift_y, res);
 }
 
 void OpenCL::Conv(cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,

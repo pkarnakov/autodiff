@@ -200,6 +200,11 @@ class MatrixCL {
     return res;
   }
   MatrixCL roll(int shift_row, int shift_col) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    cl->Roll(data_, shift_col, shift_row, res.data_);
+    return res;
+  }
+  MatrixCL roll2(int shift_row, int shift_col) const {
     using Idx = std::array<int, 2>;
     MatrixCL res(nrow_, ncol_, cl);
     if (nrow_ == 0 || ncol_ == 0) {
