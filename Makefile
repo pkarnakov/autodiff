@@ -30,6 +30,13 @@ run_poisson: $(BUILD)/poisson
 	cd $(BUILD) && ./poisson
 	make $(BUILD)/poisson.pdf
 	./plot_field.py $(BUILD)/uref.dat $(BUILD)/uref.png
+	make plot_u
+
+run_poisson_cl: $(BUILD)/poisson_cl
+	cd $(BUILD) && ./poisson_cl
+	make $(BUILD)/poisson.pdf
+	./plot_field.py $(BUILD)/uref.dat $(BUILD)/uref.png
+	make plot_u
 
 clean:
 	rm -rf $(BUILD)
@@ -38,4 +45,4 @@ test:
 	cd $(BUILD) && ctest -j`nproc --all`
 
 .SUFFIXES:
-.PHONY: all clean test run_poisson plot_u
+.PHONY: all clean test run_poisson run_poisson_cl plot_u

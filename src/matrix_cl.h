@@ -358,6 +358,12 @@ class MatrixCL {
     return matr.roll(shift_row, shift_col);
   }
 
+  template <class U>
+  friend MatrixCL conv(const MatrixCL& matr, const U& a, const U& axm,
+                       const U& axp, const U& aym, const U& ayp) {
+    return matr.conv(a, axm, axp, aym, ayp);
+  }
+
   // Static functions.
   static MatrixCL zeros(size_t nrow, size_t ncol, CL& cl) {
     return MatrixCL(nrow, ncol, T(0), &cl);

@@ -60,10 +60,8 @@ static void RunPoisson(Config config) {
       uref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
     }
   }
-  auto eval_lapl = [hx](auto& u) {
-    return ((roll(u, 1, 0) + roll(u, -1, 0)) +
-            (roll(u, 0, 1) + roll(u, 0, -1)) - 4 * u) /
-           sqr(hx);
+  auto eval_lapl = [hx](auto& u) {  //
+    return conv(u, -4, 1, 1, 1, 1) / sqr(hx);
   };
 
   using M = Matrix<Scal>;
@@ -109,7 +107,8 @@ static void RunPoisson(Config config) {
       time_prev = time_curr;
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
-      double throughput = ms > 0 ? 1e-3 * rhs.size() * dump_every / ms : 0;
+      const double throughput =
+          (epoch > 0 && ms > 0 ? 1e-3 * rhs.size() * dump_every / ms : 0);
       printf(
           "epoch=%5d, loss=%8.6e, throughput=%.3fM cells/s"
           ", u:[%.3f,%.3f], \n",

@@ -40,8 +40,8 @@ static CL Init(size_t nx, bool verbose = false) {
   config.global_size = {nx, nx};
   CL cl(config);
   if (verbose) {
-    std::cout << "Device: " << cl.device_info_.name << std::endl;
-    std::cout << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
+    std::cerr << "Device: " << cl.device_info_.name << std::endl;
+    std::cerr << "Local size: " << cl.local_size_[0] << "," << cl.local_size_[1]
               << std::endl;
   }
   return cl;
@@ -63,7 +63,7 @@ static void RunPoisson(Config config) {
 
   const size_t Nx = config.Nx;
   const Scal hx = 1. / Nx;
-  auto cl = Init(Nx);
+  auto cl = Init(Nx, true);
 
   // Reference solution.
   auto uref = MatrixCL<Scal>::zeros(Nx, Nx, cl);
@@ -78,10 +78,8 @@ static void RunPoisson(Config config) {
       uref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
     }
   }
-  auto eval_lapl = [hx](auto& u) {
-    return ((roll(u, 1, 0) + roll(u, -1, 0)) +
-            (roll(u, 0, 1) + roll(u, 0, -1)) - 4 * u) /
-           sqr(hx);
+  auto eval_lapl = [hx](auto& u) {  //
+    return conv(u, -4, 1, 1, 1, 1) / sqr(hx);
   };
 
   using M = MatrixCL<Scal>;
@@ -128,7 +126,8 @@ static void RunPoisson(Config config) {
       time_prev = time_curr;
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
-      double throughput = ms > 0 ? 1e-3 * rhs.size() * dump_every / ms : 0;
+      const double throughput =
+          (epoch > 0 && ms > 0 ? 1e-3 * rhs.size() * dump_every / ms : 0);
       printf(
           "epoch=%5d, loss=%8.6e, throughput=%.3fM cells/s"
           ", u:[%.3f,%.3f], \n",

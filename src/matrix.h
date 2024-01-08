@@ -547,6 +547,11 @@ class Matrix {
   friend Matrix roll(const Matrix& matr, int shift_row, int shift_col) {
     return matr.roll(shift_row, shift_col);
   }
+  template <class U>
+  friend Matrix conv(const Matrix& matr, const U& a, const U& axm, const U& axp,
+                     const U& aym, const U& ayp) {
+    return matr.conv(a, axm, axp, aym, ayp);
+  }
 
   // Static functions.
   static Matrix zeros(size_t nrow, size_t ncol) {

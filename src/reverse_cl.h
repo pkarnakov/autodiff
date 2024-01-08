@@ -33,3 +33,18 @@ Tracer<T, E> mean(const Tracer<MatrixCL<T>, E>& tr_x) {
       },
       "mean")};
 }
+
+template <class T, class A, class E>
+Tracer<MatrixCL<T>, E> conv(const Tracer<MatrixCL<T>, E>& tr_x, const A& a,
+                            const A& axm, const A& axp, const A& aym,
+                            const A& ayp) {
+  return {std::make_shared<NodeUnary<MatrixCL<T>, MatrixCL<T>, E>>(
+      tr_x.node(),
+      [a, axm, axp, aym, ayp](const MatrixCL<T>& x) {
+        return x.conv(a, axm, axp, aym, ayp);
+      },
+      [a, axm, axp, aym, ayp](const MatrixCL<T>&, const MatrixCL<T>& du) {
+        return du.conv(a, axp, axm, ayp, aym);
+      },
+      "conv")};
+}
