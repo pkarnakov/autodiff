@@ -289,6 +289,8 @@ struct OpenCL {
   void Log(cl_mem v, cl_mem res);
   void Sqr(cl_mem v, cl_mem res);
   void Sqrt(cl_mem v, cl_mem res);
+  void Conv(cl_mem v, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
+            cl_mem res);
   // Binary operations.
   void Add(cl_mem u, cl_mem v, cl_mem res);
   void Sub(cl_mem u, cl_mem v, cl_mem res);

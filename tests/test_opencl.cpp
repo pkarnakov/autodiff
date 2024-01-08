@@ -59,7 +59,7 @@ static void TestMatrix(CL& cl) {
   const size_t ncol = cl.global_size_[1];
   MatrixCL<Scal> u(nrow, ncol, cl);
   MatrixCL<Scal> v(nrow, ncol, cl);
-  MatrixCL<Scal> iota(Matrix<Scal>::iota(nrow, ncol), cl);
+  const MatrixCL<Scal> iota(Matrix<Scal>::iota(nrow, ncol), cl);
   u.fill(3);
   v.fill(10);
   PE(u.mean());
@@ -82,21 +82,30 @@ static void TestMatrix(CL& cl) {
   PE((log(u)).mean());
   PE(Matrix<Scal>(u).mean());
   PE(MatrixCL<Scal>(Matrix<Scal>(u) + 1, cl).mean());
-  PE(iota(2, 2));
-  PE(iota(2, 2) = 17);
-  PE(iota(2, 2));
+  PE(u(2, 2));
+  PE(u(2, 2) = 17);
+  PE(u(2, 2));
   PE((u = v, u.mean()));
   PE((u += v, u.mean()));
   MatrixCL<Scal> w;
   w = u;
   PE((w = u, w.mean()));
   PEN(Str(iota.roll(0, 0)));
-  PEN(Str(iota.roll(0, 1)));
   PEN(Str(iota.roll(1, 0)));
+  PEN(Str(iota.roll(0, 1)));
   PEN(Str(iota.roll(1, 1)));
-  PEN(Str(iota.roll(0, -1)));
   PEN(Str(iota.roll(-1, 0)));
+  PEN(Str(iota.roll(0, -1)));
   PEN(Str(iota.roll(-1, -1)));
+
+  u = iota;
+  PEN(Str(u));
+  PE(rms(u.conv(1, 0, 0, 0, 0) - u));
+  PE(rms(u.conv(0, 1, 0, 0, 0) - u.roll(1, 0)));
+  PE(rms(u.conv(0, 0, 1, 0, 0) - u.roll(-1, 0)));
+  PE(rms(u.conv(0, 0, 0, 1, 0) - u.roll(0, 1)));
+  PE(rms(u.conv(0, 0, 0, 0, 1) - u.roll(0, -1)));
+  PEN(Str(u.conv(-4, 1, 1, 1, 1)));
 }
 
 struct Extra : public BaseExtra {

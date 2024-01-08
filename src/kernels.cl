@@ -11,6 +11,10 @@ size_t iglobal(int start, int lead_y) {
   return start + iy * lead_y + ix;
 }
 
+size_t iglobal_ixy(int start, int lead_y, int ix, int iy) {
+  return start + iy * lead_y + ix;
+}
+
 ////////////////////////////////////////
 // Assignment operations.
 ////////////////////////////////////////
@@ -142,9 +146,29 @@ __kernel void unary_sqr(int start, int lead_y, __global const Scal* u,
 }
 
 __kernel void unary_sqrt(int start, int lead_y, __global const Scal* u,
-                        __global Scal* res) {
+                         __global Scal* res) {
   const size_t i = iglobal(start, lead_y);
   res[i] = sqrt(u[i]);
+}
+
+__kernel void unary_conv(int start, int lead_y, __global const Scal* u,  //
+                         Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
+                         __global Scal* res) {
+  Scal (^uu)(size_t, size_t) = ^(size_t ix, size_t iy) {
+    return u[iglobal_ixy(start, lead_y, ix, iy)];
+  };
+  const size_t ix = get_global_id(0);
+  const size_t iy = get_global_id(1);
+  const size_t nx = get_global_size(0);
+  const size_t ny = get_global_size(1);
+  const size_t ixm = (ix == 0 ? nx - 1 : ix - 1);
+  const size_t ixp = (ix + 1 == nx ? 0 : ix + 1);
+  const size_t iym = (iy == 0 ? ny - 1 : iy - 1);
+  const size_t iyp = (iy + 1 == ny ? 0 : iy + 1);
+  const size_t i = iglobal_ixy(start, lead_y, ix, iy);
+
+  res[i] = a * uu(ix, iy) + axm * uu(ixm, iy) + axp * uu(ixp, iy) +
+           aym * uu(ix, iym) + ayp * uu(ix, iyp);
 }
 
 ////////////////////////////////////////

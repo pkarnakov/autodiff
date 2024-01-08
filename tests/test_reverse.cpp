@@ -68,6 +68,7 @@ static void TestRoll() {
   };
   PEN(Str(grad(sum(x * matr))));
   PEN(Str(grad(sum(roll(x, 1, 2) * matr))));
+  PEN(Str(grad(sum(conv<T>(x, -4, 1, 1, 1, 1) * matr))));
 }
 
 template <class T = double>

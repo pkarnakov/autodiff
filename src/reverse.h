@@ -449,6 +449,21 @@ Tracer<T, E> roll(const Tracer<T, E>& tr_x, int shift_row, int shift_col) {
 }
 
 template <class T, class E>
+Tracer<Matrix<T>, E> conv(const Tracer<Matrix<T>, E>& tr_x, const T& a,
+                          const T& axm, const T& axp, const T& aym,
+                          const T& ayp) {
+  return {std::make_shared<NodeUnary<Matrix<T>, Matrix<T>, E>>(
+      tr_x.node(),
+      [a, axm, axp, aym, ayp](const Matrix<T>& x) {
+        return x.conv(a, axm, axp, aym, ayp);
+      },
+      [a, axm, axp, aym, ayp](const Matrix<T>&, const Matrix<T>& du) {
+        return du.conv(a, axp, axm, ayp, aym);
+      },
+      "conv")};
+}
+
+template <class T, class E>
 Tracer<T, E> sum(const Tracer<Matrix<T>, E>& tr_x) {
   return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
       tr_x.node(), [](const Matrix<T>& x) { return x.sum(); },

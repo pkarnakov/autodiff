@@ -252,6 +252,17 @@ class MatrixCL {
 
     return res;
   }
+  MatrixCL conv(const T& a, const T& axm, const T& axp, const T& aym,
+                const T& ayp) const {
+    MatrixCL res(nrow_, ncol_, cl);
+    if (nrow_ == 0 || ncol_ == 0) {
+      return res;
+    }
+    // Swapping the order of x and y.
+    // TODO: Revise to make x the slow index everywhere.
+    cl->Conv(data_, a, aym, ayp, axm, axp, res.data_);
+    return res;
+  }
 
   // Reduction.
   T sum() const {
@@ -301,6 +312,22 @@ class MatrixCL {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
     matr.cl->Sqrt(matr.data_, res.data_);
     return res;
+  }
+  friend T sum(const MatrixCL& matr) {
+    return matr.sum();
+  }
+  friend T mean(const MatrixCL& matr) {
+    return matr.mean();
+  }
+  friend T rms(const MatrixCL& matr) {
+    using std::sqrt;
+    return sqrt(sqr(matr).mean());
+  }
+  friend T dot(const MatrixCL& matr, const MatrixCL& other) {
+    return matr.dot(other);
+  }
+  friend MatrixCL transpose(const MatrixCL& matr) {
+    return matr.transpose();
   }
   friend MatrixCL operator+(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);

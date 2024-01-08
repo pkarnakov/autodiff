@@ -42,6 +42,12 @@ Str(grad(sum(roll(x, 1, 2) * matr))):
  17  18  19  15  16
  22  23  24  20  21
   2   3   4   0   1
+Str(grad(sum(conv<T>(x, -4, 1, 1, 1, 1) * matr))):
+ 30  25  25  25  20
+  5   0   0   0  -5
+  5   0   0   0  -5
+  5   0   0   0  -5
+-20 -25 -25 -25 -30
 
 TestMultigrid
 Str(u):

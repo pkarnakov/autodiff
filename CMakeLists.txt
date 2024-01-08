@@ -48,7 +48,7 @@ if (BUILD_TESTS)
     add_test(NAME ${T} COMMAND ${TESTDIR}/test ${CMAKE_BINARY_DIR}/${T} ${TESTDIR}/ref)
   endforeach()
   if (USE_OPENCL)
-    target_link_libraries(test_opencl opencl)
+    target_link_libraries(test_opencl opencl profiler)
   endif()
 endif()
 

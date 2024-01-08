@@ -6,7 +6,7 @@ name=$(basename "$exe")
 out="out/${name}.out"
 ref="$refdir/${name}.out"
 
-mkdir -p out ref
+mkdir -p out "$refdir"
 
 $exe > "$out"
 if ! [ -f "$ref" ] ; then

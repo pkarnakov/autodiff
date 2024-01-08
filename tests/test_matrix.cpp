@@ -61,8 +61,23 @@ static void TestMultigrid() {
   PE(dot(u, ufine.interpolate_adjoint()));
 }
 
+template <class T = double>
+static void TestConv() {
+  std::cout << '\n' << __func__ << std::endl;
+  auto u = Matrix<T>::iota(4);
+  auto Str = [](auto m) { return MatrixToStr(m); };
+  PEN(Str(u));
+  PE(rms(u.conv(1, 0, 0, 0, 0) - u));
+  PE(rms(u.conv(0, 1, 0, 0, 0) - u.roll(1, 0)));
+  PE(rms(u.conv(0, 0, 1, 0, 0) - u.roll(-1, 0)));
+  PE(rms(u.conv(0, 0, 0, 1, 0) - u.roll(0, 1)));
+  PE(rms(u.conv(0, 0, 0, 0, 1) - u.roll(0, -1)));
+  PEN(Str(u.conv(-4, 1, 1, 1, 1)));
+}
+
 int main() {
   TestMatrix();
   TestRoll();
   TestMultigrid();
+  TestConv();
 }

@@ -379,6 +379,24 @@ class Matrix {
     }
     return u;
   }
+  Matrix conv(const T& a, const T& axm, const T& axp, const T& aym,
+              const T& ayp) const {
+    Matrix res(nrow_, ncol_);
+    auto& u = *this;
+    for (size_t ix = 0; ix < nrow_; ++ix) {
+      for (size_t iy = 0; iy < ncol_; ++iy) {
+        const size_t ixm = (ix == 0 ? nrow_ - 1 : ix - 1);
+        const size_t ixp = (ix + 1 == nrow_ ? 0 : ix + 1);
+        const size_t iym = (iy == 0 ? ncol_ - 1 : iy - 1);
+        const size_t iyp = (iy + 1 == ncol_ ? 0 : iy + 1);
+        res(ix, iy) = a * u(ix, iy) + axm * u(ixm, iy) + axp * u(ixp, iy) +
+                      aym * u(ix, iym) + ayp * u(ix, iyp);
+      }
+    }
+    return res;
+  }
+
+  // Reduction.
   T sum() const {
     return std::accumulate(data_.begin(), data_.end(), T{});
   }
@@ -475,6 +493,10 @@ class Matrix {
   }
   friend T mean(const Matrix& matr) {
     return matr.mean();
+  }
+  friend T rms(const Matrix& matr) {
+    using std::sqrt;
+    return sqrt(sqr(matr).mean());
   }
   friend T dot(const Matrix& matr, const Matrix& other) {
     return matr.dot(other);
