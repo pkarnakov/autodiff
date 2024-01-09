@@ -224,7 +224,7 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
            "scalar_div",  "scalar_div2", "field_add",      "field_sub",
            "field_mul",   "field_div",   "unary_sin",      "unary_cos",
            "unary_exp",   "unary_log",   "unary_sqr",      "unary_sqrt",
-           "unary_roll",  "unary_conv",  "field_restrict",
+           "unary_roll",  "unary_conv",  "field_restrict", "field_restrict_adjoint",
        }) {
     kernels_[name].Create(program_, name);
   }
@@ -374,6 +374,12 @@ void OpenCL::Restrict(cl_mem u, int nx, int ny, cl_mem res) {
   fassert(nx % 2 == 0);
   fassert(ny % 2 == 0);
   Launch("field_restrict", u, nx, ny, res);
+}
+
+void OpenCL::RestrictAdjoint(cl_mem u, int nx, int ny, cl_mem res) {
+  fassert(nx <= int(global_size_[0]));
+  fassert(ny <= int(global_size_[1]));
+  Launch("field_restrict_adjoint", u, nx, ny, res);
 }
 
 void OpenCL::Conv(cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,

@@ -264,6 +264,11 @@ class MatrixCL {
     cl->Restrict(data_, nrow_, ncol_, res.data_);
     return res;
   }
+  MatrixCL restrict_adjoint() const {
+    MatrixCL res(nrow_ * 2, ncol_ * 2, cl);
+    cl->RestrictAdjoint(data_, nrow_, ncol_, res.data_);
+    return res;
+  }
   MatrixCL conv(const T& a, const T& axm, const T& axp, const T& aym,
                 const T& ayp) const {
     MatrixCL res(nrow_, ncol_, cl);

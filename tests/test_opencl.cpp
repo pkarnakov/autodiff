@@ -117,6 +117,7 @@ static void TestMultigrid(CL& cl) {
   MatrixCL<Scal> u(Matrix<Scal>::iota(nrow, ncol), cl);
   PEN(Str(u));
   PEN(Str(u.restrict()));
+  PEN(Str(u.restrict().restrict_adjoint()));
 }
 
 struct Extra : public BaseExtra {
