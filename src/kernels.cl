@@ -163,10 +163,32 @@ __kernel void unary_roll(int lead_y, __global const Scal* u, int shift_x,
   res[i] = u[is];
 }
 
+// Restricts field `u` of size (nx,ny) to the next coarser level.
+// res: output buffer of size (nx/2, ny/2)
+__kernel void field_restrict(__global const Scal* u, int nx, int ny,
+                             __global Scal* res) {
+  Scal (^U)(size_t, size_t) = ^(size_t ix, size_t iy) {
+    return u[iy * nx + ix];
+  };
+  const size_t nxc = nx / 2;
+  const size_t nyc = ny / 2;
+  const size_t ix = get_global_id(0);
+  const size_t iy = get_global_id(1);
+  if (ix < nxc && iy < nyc) {
+    Scal a = 0;
+    for (int dx = 0; dx < 2; ++dx) {
+      for (int dy = 0; dy < 2; ++dy) {
+        a += U(2 * ix + dx, 2 * iy + dy);
+      }
+    }
+    res[iy * nxc + ix] = a * 0.25;
+  }
+}
+
 __kernel void unary_conv(int lead_y, __global const Scal* u,  //
                          Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
                          __global Scal* res) {
-  Scal (^uu)(size_t, size_t) = ^(size_t ix, size_t iy) {
+  Scal (^U)(size_t, size_t) = ^(size_t ix, size_t iy) {
     return u[iglobal_ixy(lead_y, ix, iy)];
   };
   const size_t ix = get_global_id(0);
@@ -179,8 +201,8 @@ __kernel void unary_conv(int lead_y, __global const Scal* u,  //
   const size_t iyp = (iy + 1 == ny ? 0 : iy + 1);
   const size_t i = iglobal_ixy(lead_y, ix, iy);
 
-  res[i] = a * uu(ix, iy) + axm * uu(ixm, iy) + axp * uu(ixp, iy) +
-           aym * uu(ix, iym) + ayp * uu(ix, iyp);
+  res[i] = a * U(ix, iy) + axm * U(ixm, iy) + axp * U(ixp, iy) +
+           aym * U(ix, iym) + ayp * U(ix, iyp);
 }
 
 ////////////////////////////////////////

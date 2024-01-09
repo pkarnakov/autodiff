@@ -218,13 +218,13 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   program_.CreateFromString(kKernelSource, context_, device_);
   d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
   for (std::string name : {
-           "reduce_max",  "reduce_min",  "reduce_sum",  "reduce_dot",
-           "assign_fill", "assign_add",  "assign_sub",  "assign_subarray",
-           "scalar_add",  "scalar_sub",  "scalar_sub2", "scalar_mul",
-           "scalar_div",  "scalar_div2", "field_add",   "field_sub",
-           "field_mul",   "field_div",   "unary_sin",   "unary_cos",
-           "unary_exp",   "unary_log",   "unary_sqr",   "unary_sqrt",
-           "unary_roll",  "unary_conv",
+           "reduce_max",  "reduce_min",  "reduce_sum",     "reduce_dot",
+           "assign_fill", "assign_add",  "assign_sub",     "assign_subarray",
+           "scalar_add",  "scalar_sub",  "scalar_sub2",    "scalar_mul",
+           "scalar_div",  "scalar_div2", "field_add",      "field_sub",
+           "field_mul",   "field_div",   "unary_sin",      "unary_cos",
+           "unary_exp",   "unary_log",   "unary_sqr",      "unary_sqrt",
+           "unary_roll",  "unary_conv",  "field_restrict",
        }) {
     kernels_[name].Create(program_, name);
   }
@@ -366,6 +366,14 @@ void OpenCL::Roll(cl_mem u, int shift_x, int shift_y, cl_mem res) {
     shift_y += ny;
   }
   Launch("unary_roll", lead_y_, u, shift_x, shift_y, res);
+}
+
+void OpenCL::Restrict(cl_mem u, int nx, int ny, cl_mem res) {
+  fassert(nx <= int(global_size_[0]));
+  fassert(ny <= int(global_size_[1]));
+  fassert(nx % 2 == 0);
+  fassert(ny % 2 == 0);
+  Launch("field_restrict", u, nx, ny, res);
 }
 
 void OpenCL::Conv(cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,

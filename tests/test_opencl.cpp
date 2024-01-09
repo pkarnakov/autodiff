@@ -108,6 +108,17 @@ static void TestMatrix(CL& cl) {
   PEN(Str(u.conv(-4, 1, 1, 1, 1)));
 }
 
+template <class Scal = double>
+static void TestMultigrid(CL& cl) {
+  std::cout << '\n' << __func__ << std::endl;
+  auto Str = [](auto m) { return MatrixToStr(m, 3, 3); };
+  const size_t nrow = cl.global_size_[0];
+  const size_t ncol = cl.global_size_[1];
+  MatrixCL<Scal> u(Matrix<Scal>::iota(nrow, ncol), cl);
+  PEN(Str(u));
+  PEN(Str(u.restrict()));
+}
+
 struct Extra : public BaseExtra {
   Extra(std::ostream& out) : dot(out) {}
   template <class Node>
@@ -162,5 +173,9 @@ int main() {
   {
     auto cl = Init(4, true);
     TestMatrix(cl);
+  }
+  {
+    auto cl = Init(8, true);
+    TestMultigrid(cl);
   }
 }
