@@ -44,5 +44,9 @@ clean:
 test:
 	cd $(BUILD) && ctest -j`nproc --all`
 
+test_update:
+	rm -vf tests/ref/*.out
+	cd $(BUILD) && ctest -j`nproc --all`
+
 .SUFFIXES:
-.PHONY: all clean test run_poisson run_poisson_cl plot_u
+.PHONY: all clean test test_update run_poisson run_poisson_cl plot_u
