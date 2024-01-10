@@ -84,7 +84,9 @@ class GenericNode {
   virtual void UpdateGrad() = 0;
   virtual void ClearGrad() = 0;
   virtual void BuildForwardOrder(NodeOrder<E>& order) = 0;
-  virtual void Print(std::ostream& out) const;
+  virtual void Print(std::ostream& out) const {
+    Extra::Print(out, this);
+  }
   virtual void Visit(Extra& extra) const = 0;
 
  protected:
@@ -640,6 +642,10 @@ std::ostream& operator<<(std::ostream& out, const Tracer<T, E>& tracer) {
 
 // Writes nodes in plain text.
 struct PrintImpl {
+  template <class E>
+  static void Print(std::ostream& out, const GenericNode<E>* node) {
+    out << "GenericNode()";
+  }
   template <class T, class E>
   static void Print(std::ostream& out, const Node<T, E>* node) {
     out << "Node(" << node->name() << ", " << GetTypeName<T>() << ")";
