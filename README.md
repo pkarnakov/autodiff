@@ -25,20 +25,18 @@ make
 
 ### Dual
 
-[`test_dual.cpp`](src/test_dual.cpp)
+[`test_dual.cpp`](tests/test_dual.cpp)
 
 ```
-cd src
-make build/test_dual && build/test_dual
+build/test_dual
 ```
 
 ### Reverse
 
-[`test_reverse.cpp`](src/test_reverse.cpp)
+[`test_reverse.cpp`](tests/test_reverse.cpp)
 
 ```
-cd src
-make build/test_reverse && build/test_reverse && make reverse_scal1.pdf
+build/test_reverse && make reverse_scal1.pdf
 ```
 
 <img src="https://pkarnakov.github.io/autodiff/media/reverse_scal1.svg" height="200px">
@@ -48,7 +46,6 @@ make build/test_reverse && build/test_reverse && make reverse_scal1.pdf
 [`poisson.cpp`](src/poisson.cpp)
 
 ```
-cd src
 make run_poisson
 ```
 
