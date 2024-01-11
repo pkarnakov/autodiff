@@ -203,6 +203,38 @@ __kernel void field_restrict_adjoint(__global const Scal* u,
   }
 }
 
+// Interpolates field `u` of size (nx, ny) to the next finer level.
+// res: output buffer of size (nx*2, ny*2).
+__kernel void field_interpolate(__global const Scal* u, __global Scal* res) {
+  const size_t nx = get_global_size(0);
+  const size_t ny = get_global_size(1);
+  const size_t nxf = nx * 2;
+  const size_t nyf = ny * 2;
+  Scal (^interp)(size_t, size_t, size_t, size_t, Scal, Scal) =
+      ^(size_t ix, size_t ixp, size_t iy, size_t iyp, Scal wx, Scal wy) {
+        const Scal u00 = u[iy * nx + ix];
+        const Scal u10 = u[iy * nx + ixp];
+        const Scal u01 = u[iyp * nx + ix];
+        const Scal u11 = u[iyp * nx + ixp];
+        return (u00 * (1 - wx) + u10 * wx) * (1 - wy) +
+               (u01 * (1 - wx) + u11 * wx) * wy;
+      };
+  const size_t ix = get_global_id(0);
+  const size_t iy = get_global_id(1);
+  if (ix + 1 < nx && iy + 1 < ny) {
+    // Inner cells.
+    for (int dx = 0; dx < 2; ++dx) {
+      for (int dy = 0; dy < 2; ++dy) {
+        const size_t ixf = 2 * ix + 1 + dx;
+        const size_t iyf = 2 * iy + 1 + dy;
+        const Scal wx = 0.25 + dx * 0.5;
+        const Scal wy = 0.25 + dy * 0.5;
+        res[iyf * nxf + ixf] = interp(ix, ix + 1, iy, iy + 1, wx, wy);
+      }
+    }
+  }
+}
+
 __kernel void unary_conv(int lead_y, __global const Scal* u,  //
                          Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
                          __global Scal* res) {

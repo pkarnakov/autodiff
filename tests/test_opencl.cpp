@@ -118,6 +118,7 @@ static void TestMultigrid(CL& cl) {
   PEN(Str(u));
   PEN(Str(u.restrict()));
   PEN(Str(u.restrict().restrict_adjoint()));
+  PEN(Str(u.restrict().interpolate()));
 }
 
 struct Extra : public BaseExtra {
