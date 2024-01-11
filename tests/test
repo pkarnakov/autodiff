@@ -12,4 +12,4 @@ $exe > "$out"
 if ! [ -f "$ref" ] ; then
   cp "$out" "$ref"
 fi
-diff -q "$ref" "$out"
+diff -u "$ref" "$out"

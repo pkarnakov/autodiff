@@ -163,32 +163,33 @@ __kernel void unary_roll(int lead_y, __global const Scal* u, int shift_x,
   res[i] = u[is];
 }
 
-// Restricts field `u` of size (nx,ny) to the next coarser level.
-// res: output buffer of size (nx/2, ny/2).
-__kernel void field_restrict(__global const Scal* u, int nx, int ny,
-                             __global Scal* res) {
-  Scal (^U)(size_t, size_t) = ^(size_t ix, size_t iy) {
-    return u[iy * nx + ix];
+// Restricts field `u` of size (2*nx,2*ny) to the next coarser level.
+// res: output buffer of size (nx, ny).
+__kernel void field_restrict(__global const Scal* u, __global Scal* res) {
+  const size_t nx = get_global_size(0);
+  const size_t ny = get_global_size(1);
+  const size_t nxf = 2 * nx;
+  const size_t nyf = 2 * ny;
+  Scal (^U)(size_t, size_t) = ^(size_t ixf, size_t iyf) {
+    return u[iyf * nxf + ixf];
   };
-  const size_t nxc = nx / 2;
-  const size_t nyc = ny / 2;
   const size_t ix = get_global_id(0);
   const size_t iy = get_global_id(1);
-  if (ix < nxc && iy < nyc) {
-    Scal a = 0;
-    for (int dx = 0; dx < 2; ++dx) {
-      for (int dy = 0; dy < 2; ++dy) {
-        a += U(2 * ix + dx, 2 * iy + dy);
-      }
+  Scal a = 0;
+  for (int dx = 0; dx < 2; ++dx) {
+    for (int dy = 0; dy < 2; ++dy) {
+      a += U(2 * ix + dx, 2 * iy + dy);
     }
-    res[iy * nxc + ix] = a * 0.25;
   }
+  res[iy * nx + ix] = a * 0.25;
 }
 
 // Adjoint of field_restrict().
 // res: output buffer of size (nx*2, ny*2).
-__kernel void field_restrict_adjoint(__global const Scal* u, int nx, int ny,
+__kernel void field_restrict_adjoint(__global const Scal* u,
                                      __global Scal* res) {
+  const size_t nx = get_global_size(0);
+  const size_t ny = get_global_size(1);
   const size_t nxf = nx * 2;
   const size_t nyf = ny * 2;
   const size_t ix = get_global_id(0);

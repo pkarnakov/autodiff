@@ -290,8 +290,9 @@ struct OpenCL {
   void Sqr(cl_mem v, cl_mem res);
   void Sqrt(cl_mem v, cl_mem res);
   void Roll(cl_mem v, int shift_x, int shift_y, cl_mem res);
-  void Restrict(cl_mem u, int nx, int ny, cl_mem res);
-  void RestrictAdjoint(cl_mem u, int nx, int ny, cl_mem res);
+  void Restrict(cl_mem u, size_t nx, size_t ny, cl_mem res);
+  void RestrictAdjoint(cl_mem u, size_t nx, size_t ny, cl_mem res);
+  void Interpolate(cl_mem u, size_t nx, size_t ny, cl_mem res);
   void Conv(cl_mem v, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
             cl_mem res);
   // Binary operations.
