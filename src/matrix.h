@@ -312,7 +312,7 @@ class Matrix {
     // Boundary cells with linear extrapolation.
     for (size_t fi = 0; fi < ufine.nrow_; ++fi) {
       for (size_t fj = 0; fj < ufine.ncol_; ++fj) {
-        const size_t i = (fi == 0 || nrow_ == 1   ? 0
+        const size_t i = (fi == 0 || u.nrow_ == 1 ? 0
                           : fi == ufine.nrow_ - 1 ? u.nrow_ - 2
                                                   : (fi - 1) / 2);
         const size_t j = (fj == 0 || u.ncol_ == 1 ? 0

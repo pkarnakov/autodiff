@@ -392,7 +392,7 @@ void OpenCL::RestrictAdjoint(cl_mem u, size_t nx, size_t ny, cl_mem res) {
 
 void OpenCL::Interpolate(cl_mem u, size_t nx, size_t ny, cl_mem res) {
   auto& kernel = kernels_.at("field_interpolate");
-  kernel.EnqueueWithArgs(queue_, {nx, ny}, local_size_, u, res);
+  kernel.EnqueueWithArgs(queue_, {2 * nx, 2 * ny}, local_size_, u, res);
 }
 
 void OpenCL::Conv(cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
