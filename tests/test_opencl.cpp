@@ -15,11 +15,10 @@
 
 using CL = OpenCL;
 
-static CL Init(size_t nx, bool verbose = false) {
+static CL Init(bool verbose = false) {
   CL::Config config;
   config.platform = 0;
   config.verbose = 0;
-  config.global_size = {nx, nx};
   CL cl(config);
   if (verbose) {
     std::cerr << "Device: " << cl.device_info_.name << std::endl;
@@ -30,33 +29,32 @@ static CL Init(size_t nx, bool verbose = false) {
 }
 
 template <class Scal = double>
-static void TestBasic(CL& cl) {
+static void TestBasic(CL& cl, size_t nrow) {
   std::cout << '\n' << __func__ << std::endl;
   auto& queue = cl.queue_;
   auto& context = cl.context_;
 
+  const CL::MSize nw{nrow, nrow};
   CL::MirroredBuffer<Scal> u;
   CL::MirroredBuffer<Scal> v;
-  u.Create(context, cl.ngroups_, CL_MEM_WRITE_ONLY);
-  v.Create(context, cl.ngroups_, CL_MEM_WRITE_ONLY);
+  u.Create(context, nw[0] * nw[1], CL_MEM_WRITE_ONLY);
+  v.Create(context, nw[0] * nw[1], CL_MEM_WRITE_ONLY);
   for (size_t i = 0; i < u.size(); ++i) {
     u[i] = 3;
     v[i] = 10;
   }
   u.EnqueueWrite(queue);
   v.EnqueueWrite(queue);
-  queue.Finish();
 
-  PE(cl.Sum(u) / u.size());
-  PE(cl.Dot(u, v));
+  PE(cl.Sum(nw, u) / u.size());
+  PE(cl.Dot(nw, u, v) / u.size());
 }
 
 template <class Scal = double>
-static void TestMatrix(CL& cl) {
+static void TestMatrix(CL& cl, size_t nrow) {
   std::cout << '\n' << __func__ << std::endl;
   auto Str = [](auto m) { return MatrixToStr(m, 3, 3); };
-  const size_t nrow = cl.global_size_[0];
-  const size_t ncol = cl.global_size_[1];
+  const size_t ncol = nrow;
   MatrixCL<Scal> u(nrow, ncol, cl);
   MatrixCL<Scal> v(nrow, ncol, cl);
   const MatrixCL<Scal> iota(Matrix<Scal>::iota(nrow, ncol), cl);
@@ -109,16 +107,16 @@ static void TestMatrix(CL& cl) {
 }
 
 template <class Scal = double>
-static void TestMultigrid(CL& cl) {
+static void TestMultigrid(CL& cl, size_t nrow) {
   std::cout << '\n' << __func__ << std::endl;
   auto Str = [](auto m) { return MatrixToStr(m, 3, 3); };
-  const size_t nrow = cl.global_size_[0];
-  const size_t ncol = cl.global_size_[1];
+  const size_t ncol = nrow;
   MatrixCL<Scal> u(Matrix<Scal>::iota(nrow, ncol), cl);
   PEN(Str(u));
   PEN(Str(u.restrict()));
   PEN(Str(u.restrict().restrict_adjoint()));
   PEN(Str(u.restrict().interpolate()));
+  PEN(Str(u.interpolate_adjoint()));
 }
 
 struct Extra : public BaseExtra {
@@ -131,13 +129,12 @@ struct Extra : public BaseExtra {
 };
 
 template <class Scal = double>
-static void TestReverse(CL& cl) {
+static void TestReverse(CL& cl, size_t nrow) {
   std::cout << '\n' << __func__ << std::endl;
   const auto pi = M_PI;
   auto Str = [](auto m) { return MatrixToStr(m, 3, 1); };
 
-  const size_t nrow = cl.global_size_[0];
-  const size_t ncol = cl.global_size_[1];
+  const size_t ncol = nrow;
   const auto eye = Matrix<Scal>::eye(nrow, ncol);
   auto matr_x = std::make_unique<MatrixCL<Scal>>(eye * (pi / 8), cl);
   auto matr_y = std::make_unique<MatrixCL<Scal>>(eye * (pi / 8), cl);
@@ -167,17 +164,9 @@ static void TestReverse(CL& cl) {
 }
 
 int main() {
-  {
-    auto cl = Init(16, true);
-    TestBasic(cl);
-    TestReverse(cl);
-  }
-  {
-    auto cl = Init(4, true);
-    TestMatrix(cl);
-  }
-  {
-    auto cl = Init(8, true);
-    TestMultigrid(cl);
-  }
+  auto cl = Init(true);
+  TestBasic(cl, 16);
+  TestReverse(cl, 16);
+  TestMatrix(cl, 4);
+  TestMultigrid(cl, 8);
 }

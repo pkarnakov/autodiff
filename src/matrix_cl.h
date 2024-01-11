@@ -15,6 +15,8 @@ template <class T>
 class MatrixCL {
  public:
   using CL = OpenCL;
+  using MSize = OpenCL::MSize;
+  using MInt = OpenCL::MInt;
   template <class U>
   friend class Matrix;
 
@@ -37,18 +39,17 @@ class MatrixCL {
 
   // Constructor.
   MatrixCL() = default;
-  MatrixCL(size_t nrow, size_t ncol, CL* cl_)
-      : cl(cl_),
-        nrow_(nrow),
-        ncol_(ncol),
-        data_(cl->context(), nrow_ * ncol_) {}
-  MatrixCL(size_t nrow, size_t ncol, CL& cl_) : MatrixCL(nrow, ncol, &cl_) {}
-  MatrixCL(size_t nrow, size_t ncol, T value, CL* cl_)
-      : MatrixCL(nrow, ncol, cl_) {
+  MatrixCL(MSize nw, CL* cl_)
+      : cl(cl_), nw_(nw), data_(cl->context(), nw_[0] * nw_[1]) {}
+  MatrixCL(MSize nw, CL& cl_) : MatrixCL(nw, &cl_) {}
+  MatrixCL(size_t nrow, size_t ncol, CL* cl_) : MatrixCL({nrow, ncol}, cl_) {}
+  MatrixCL(size_t nrow, size_t ncol, CL& cl_) : MatrixCL({nrow, ncol}, &cl_) {}
+  MatrixCL(MSize nw, T value, CL* cl_) : MatrixCL(nw, cl_) {
     this->fill(value);
   }
-  MatrixCL(const MatrixCL& other)
-      : MatrixCL(other.nrow_, other.ncol_, other.cl) {
+  MatrixCL(size_t nrow, size_t ncol, T value, CL* cl_)
+      : MatrixCL({nrow, ncol}, value, cl_) {}
+  MatrixCL(const MatrixCL& other) : MatrixCL(other.nw_, other.cl) {
     fassert(data_.handle);
     fassert(other.data_.handle);
     data_.EnqueueWriteBuffer(cl->queue(), other.data_);
@@ -61,10 +62,10 @@ class MatrixCL {
 
   // Element access.
   T read(int i, int j) const {
-    return cl->ReadAt<T>(data_, i, j);
+    return cl->ReadAt<T>(nw_, data_, {i, j});
   }
   void write(int i, int j, T value) {
-    return cl->WriteAt(data_, i, j, value);
+    return cl->WriteAt(nw_, data_, {i, j}, value);
   }
   T operator()(int i, int j) const {
     return read(i, j);
@@ -73,13 +74,13 @@ class MatrixCL {
     return Entry(*this, i, j);
   }
   size_t nrow() const {
-    return nrow_;
+    return nw_[0];
   }
   size_t ncol() const {
-    return ncol_;
+    return nw_[1];
   }
   size_t size() const {
-    return nrow_ * ncol_;
+    return nw_[0] * nw_[1];
   }
 
   // Assignment.
@@ -87,13 +88,12 @@ class MatrixCL {
     fassert(other.cl, "Can't assign add an empty matrix");
     if (cl == nullptr) {
       cl = other.cl;
-      nrow_ = other.nrow_;
-      ncol_ = other.ncol_;
-      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      nw_ = other.nw_;
+      CL::Buffer<T> buf(cl->context(), nw_[0] * nw_[1]);
       data_.swap(buf);
     }
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
     fassert(data_.handle);
     fassert(other.data_.handle);
     data_.EnqueueWriteBuffer(cl->queue(), other.data_);
@@ -103,236 +103,188 @@ class MatrixCL {
     fassert(other.cl, "Can't assign add an empty matrix");
     if (cl == nullptr) {
       cl = other.cl;
-      nrow_ = other.nrow_;
-      ncol_ = other.ncol_;
-      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      nw_ = other.nw_;
+      CL::Buffer<T> buf(cl->context(), nw_[0] * nw_[1]);
       data_.swap(buf);
     }
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    cl->AssignAdd(data_, other.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    cl->AssignAdd(nw_, data_, other.data_);
     return *this;
   }
   MatrixCL& operator-=(const MatrixCL& other) {
     fassert(other.cl, "Can't assign add an empty matrix");
     if (cl == nullptr) {
       cl = other.cl;
-      nrow_ = other.nrow_;
-      ncol_ = other.ncol_;
-      CL::Buffer<T> buf(cl->context(), nrow_ * ncol_);
+      nw_ = other.nw_;
+      CL::Buffer<T> buf(cl->context(), nw_[0] * nw_[1]);
       data_.swap(buf);
     }
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    cl->AssignSub(data_, other.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    cl->AssignSub(nw_, data_, other.data_);
     return *this;
   }
   void fill(T value) const {
-    return cl->Fill(data_, value);
+    return cl->Fill(nw_, data_, value);
   }
   void clear() const {
     if (cl) {
-      cl->Fill(data_, T(0));
+      cl->Fill(nw_, data_, T(0));
     }
   }
   explicit operator Matrix<T>() const {
-    Matrix<T> res(nrow_, ncol_, 2);
+    Matrix<T> res(nw_[0], nw_[1]);
     data_.EnqueueRead(cl->queue(), res.data());
     return res;
   }
 
   // Member functions.
   MatrixCL operator-() const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Mul(data_, -1, res.data_);
+    MatrixCL res(nw_, cl);
+    cl->Mul(nw_, data_, -1, res.data_);
     return res;
   }
   MatrixCL operator+(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Add(data_, other.data_, res.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    MatrixCL res(nw_, cl);
+    cl->Add(nw_, data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator-(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Sub(data_, other.data_, res.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    MatrixCL res(nw_, cl);
+    cl->Sub(nw_, data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator*(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Mul(data_, other.data_, res.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    MatrixCL res(nw_, cl);
+    cl->Mul(nw_, data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator/(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
-    fassert_equal(nrow_, other.nrow_);
-    fassert_equal(ncol_, other.ncol_);
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Div(data_, other.data_, res.data_);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
+    MatrixCL res(nw_, cl);
+    cl->Div(nw_, data_, other.data_, res.data_);
     return res;
   }
   MatrixCL operator+(T a) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Add(data_, a, res.data_);
+    MatrixCL res(nw_, cl);
+    cl->Add(nw_, data_, a, res.data_);
     return res;
   }
   MatrixCL operator-(T a) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Sub(data_, a, res.data_);
+    MatrixCL res(nw_, cl);
+    cl->Sub(nw_, data_, a, res.data_);
     return res;
   }
   MatrixCL operator*(T a) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Mul(data_, a, res.data_);
+    MatrixCL res(nw_, cl);
+    cl->Mul(nw_, data_, a, res.data_);
     return res;
   }
   MatrixCL operator/(T a) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Div(data_, a, res.data_);
+    MatrixCL res(nw_, cl);
+    cl->Div(nw_, data_, a, res.data_);
     return res;
   }
   MatrixCL roll(int shift_row, int shift_col) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    cl->Roll(data_, shift_col, shift_row, res.data_);
-    return res;
-  }
-  MatrixCL roll2(int shift_row, int shift_col) const {
-    using Idx = std::array<int, 2>;
-    MatrixCL res(nrow_, ncol_, cl);
-    if (nrow_ == 0 || ncol_ == 0) {
-      return res;
-    }
-    const Idx shape = {int(nrow_), int(ncol_)};
-    // Rectangle to copy:
-    Idx idst;  // Starting position in dst.
-    Idx isrc;  // Starting position in src.
-    Idx icnt;  // Elements count.
-
-    // Flips the rectangle along axis k.
-    auto flip = [&](int k) {
-      idst[k] = (idst[k] == 0 ? icnt[k] : 0);
-      isrc[k] = (isrc[k] == 0 ? icnt[k] : 0);
-      icnt[k] = shape[k] - icnt[k];
-    };
-    // Copies the rectangle from src to dst.
-    auto copy = [&]() {
-      if (icnt[0] == 0 || icnt[1] == 0) {
-        return;
-      }
-      cl->AssignSubarray(res.data_, data_, {idst[1], idst[0]},
-                         {isrc[1], isrc[0]}, {icnt[1], icnt[0]});
-    };
-
-    // Normalize shift to positive values and select one rectangle to copy.
-    int shift[2] = {shift_row, shift_col};
-    for (auto k : {0, 1}) {
-      if (shift[k] < 0) {
-        shift[k] = shape[k] - (-shift[k]) % shape[k];
-      } else {
-        shift[k] = shift[k] % shape[k];
-      }
-      idst[k] = shift[k];
-      isrc[k] = 0;
-      icnt[k] = shape[k] - shift[k];
-    }
-
-    copy();
-
-    flip(0);
-    copy();
-
-    flip(1);
-    copy();
-
-    flip(0);
-    copy();
-
+    MatrixCL res(nw_, cl);
+    cl->Roll(nw_, data_, {shift_col, shift_row}, res.data_);
     return res;
   }
   MatrixCL restrict() const {
-    fassert(nrow_ % 2 == 0);
-    fassert(ncol_ % 2 == 0);
-    MatrixCL res(nrow_ / 2, ncol_ / 2, cl);
-    cl->Restrict(data_, nrow_, ncol_, res.data_);
+    fassert(nw_[0] % 2 == 0);
+    fassert(nw_[1] % 2 == 0);
+    MatrixCL res(nw_[0] / 2, nw_[1] / 2, cl);
+    cl->Restrict(res.nw_, data_, res.data_);
     return res;
   }
   MatrixCL restrict_adjoint() const {
-    MatrixCL res(nrow_ * 2, ncol_ * 2, cl);
-    cl->RestrictAdjoint(data_, nrow_, ncol_, res.data_);
+    MatrixCL res(nw_[0] * 2, nw_[1] * 2, cl);
+    cl->RestrictAdjoint(nw_, data_, res.data_);
     return res;
   }
   MatrixCL interpolate() const {
-    MatrixCL res(nrow_ * 2, ncol_ * 2, cl);
-    cl->Interpolate(data_, nrow_, ncol_, res.data_);
+    MatrixCL res(nw_[0] * 2, nw_[1] * 2, cl);
+    cl->Interpolate(res.nw_, data_, res.data_);
+    return res;
+  }
+  MatrixCL interpolate_adjoint() const {
+    fassert(nw_[0] % 2 == 0);
+    fassert(nw_[1] % 2 == 0);
+    MatrixCL res({nw_[0] / 2, nw_[1] / 2}, cl);
+    cl->InterpolateAdjoint(res.nw_, data_, res.data_);
     return res;
   }
   MatrixCL conv(const T& a, const T& axm, const T& axp, const T& aym,
                 const T& ayp) const {
-    MatrixCL res(nrow_, ncol_, cl);
-    if (nrow_ == 0 || ncol_ == 0) {
+    MatrixCL res(nw_, cl);
+    if (nw_[0] == 0 || nw_[1] == 0) {
       return res;
     }
     // Swapping the order of x and y.
     // TODO: Revise to make x the slow index everywhere.
-    cl->Conv(data_, a, aym, ayp, axm, axp, res.data_);
+    cl->Conv(nw_, data_, a, aym, ayp, axm, axp, res.data_);
     return res;
   }
 
   // Reduction.
   T sum() const {
-    return cl->Sum(data_);
+    return cl->Sum(nw_, data_);
   }
   T mean() const {
     return sum() / size();
   }
   T dot(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
-    return cl->Dot(data_, other.data_);
+    return cl->Dot(nw_, data_, other.data_);
   }
   T max() const {
-    return cl->Max(data_);
+    return cl->Max(nw_, data_);
   }
   T min() const {
-    return cl->Min(data_);
+    return cl->Min(nw_, data_);
   }
 
   // Friend functions.
   friend MatrixCL sin(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Sin(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Sin(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL cos(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Cos(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Cos(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL exp(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Exp(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Exp(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL log(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Log(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Log(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL sqr(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Sqr(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Sqr(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL sqrt(const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Sqrt(matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Sqrt(matr.nw_, matr.data_, res.data_);
     return res;
   }
   friend T sum(const MatrixCL& matr) {
@@ -352,27 +304,27 @@ class MatrixCL {
     return matr.transpose();
   }
   friend MatrixCL operator+(T a, const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Add(matr.data_, a, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Add(matr.nw_, matr.data_, a, res.data_);
     return res;
   }
   friend MatrixCL operator-(T a, const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Sub(a, matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Sub(matr.nw_, a, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL operator*(T a, const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Mul(matr.data_, a, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Mul(matr.nw_, matr.data_, a, res.data_);
     return res;
   }
   friend MatrixCL operator/(T a, const MatrixCL& matr) {
-    MatrixCL res(matr.nrow_, matr.ncol_, matr.cl);
-    matr.cl->Div(a, matr.data_, res.data_);
+    MatrixCL res(matr.nw_, matr.cl);
+    matr.cl->Div(matr.nw_, a, matr.data_, res.data_);
     return res;
   }
   friend MatrixCL roll(const MatrixCL& matr, int shift_row, int shift_col) {
-    return matr.roll(shift_row, shift_col);
+    return matr.roll(matr.nw_, {shift_row, shift_col});
   }
 
   template <class U>
@@ -385,19 +337,27 @@ class MatrixCL {
   static MatrixCL zeros(size_t nrow, size_t ncol, CL& cl) {
     return MatrixCL(nrow, ncol, T(0), &cl);
   }
+  static MatrixCL zeros(size_t n, CL& cl) {
+    return MatrixCL::zeros(n, n, cl);
+  }
+  static MatrixCL ones(size_t nrow, size_t ncol, CL& cl) {
+    return MatrixCL(nrow, ncol, T(1), &cl);
+  }
+  static MatrixCL ones(size_t n, CL& cl) {
+    return MatrixCL::ones(n, n, cl);
+  }
   template <class U>
   static MatrixCL zeros_like(const MatrixCL<U>& other) {
-    return MatrixCL(other.nrow_, other.ncol_, T(0), other.cl);
+    return MatrixCL(other.nw_, T(0), other.cl);
   }
   template <class U>
   static MatrixCL ones_like(const MatrixCL<U>& other) {
-    return MatrixCL(other.nrow_, other.ncol_, T(1), other.cl);
+    return MatrixCL(other.nw_, T(1), other.cl);
   }
 
  private:
   CL* cl = nullptr;
-  size_t nrow_;
-  size_t ncol_;
+  MSize nw_;
   CL::Buffer<T> data_;
 };
 

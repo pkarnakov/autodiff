@@ -37,7 +37,6 @@ static CL Init(size_t nx, bool verbose = false) {
   CL::Config config;
   config.platform = 0;
   config.verbose = 0;
-  config.global_size = {nx, nx};
   CL cl(config);
   if (verbose) {
     std::cerr << "Device: " << cl.device_info_.name << std::endl;

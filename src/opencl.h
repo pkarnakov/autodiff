@@ -39,7 +39,6 @@ struct OpenCL {
   struct Config {
     int platform = 0;
     int verbose = 0;
-    MSize global_size;  // Global array size.
   };
 
   struct Device {
@@ -181,7 +180,11 @@ struct OpenCL {
   template <class T>
   struct MirroredBuffer : public Buffer<T> {
     using Base = Buffer<T>;
-    using Base::handle;
+    MirroredBuffer() = default;
+    MirroredBuffer(cl_context context, size_t size,
+                   cl_mem_flags flags = CL_MEM_READ_WRITE) {
+      Create(context, size, flags);
+    }
     void Create(cl_context context, size_t size,
                 cl_mem_flags flags = CL_MEM_READ_WRITE) {
       Base::Create(context, size, flags);
@@ -206,6 +209,7 @@ struct OpenCL {
       return buf.data();
     }
 
+    using Base::handle;
     std::vector<T> buf;
   };
 
@@ -262,59 +266,78 @@ struct OpenCL {
   OpenCL(const Config&);
   OpenCL(OpenCL&&) = default;
   // Reduction operations.
-  Scal Max(cl_mem u);
-  Scal Min(cl_mem u);
-  Scal Sum(cl_mem u);
-  Scal Dot(cl_mem u, cl_mem v);
+  Scal Max(MSize nw, cl_mem u);
+  Scal Min(MSize nw, cl_mem u);
+  Scal Sum(MSize nw, cl_mem u);
+  Scal Dot(MSize nw, cl_mem u, cl_mem v);
   // Element access.
   template <class T>
-  T ReadAt(cl_mem u, int ix, int iy);
+  T ReadAt(MSize nw, cl_mem u, MInt iw);
   template <class T>
-  void WriteAt(cl_mem u, int ix, int iy, T value);
+  void WriteAt(MSize nw, cl_mem u, MInt iw, T value);
   // Assignment operations.
-  void Fill(cl_mem u, Scal value);
-  void AssignAdd(cl_mem u, cl_mem v);
-  void AssignSub(cl_mem u, cl_mem v);
-  void AssignSubarray(cl_mem u, cl_mem v, MInt iu, MInt iv, MInt icnt);
+  void Fill(MSize nw, cl_mem u, Scal value);
+  void AssignAdd(MSize nw, cl_mem u, cl_mem v);
+  void AssignSub(MSize nw, cl_mem u, cl_mem v);
+  void AssignSubarray(MInt nw_u, MInt nw_v, cl_mem u, cl_mem v, MInt iu,
+                      MInt iv, MSize icnt);
   // Unary operations.
-  void Add(cl_mem u, Scal v, cl_mem res);
-  void Sub(cl_mem u, Scal v, cl_mem res);
-  void Sub(Scal u, cl_mem v, cl_mem res);
-  void Mul(cl_mem u, Scal v, cl_mem res);
-  void Div(cl_mem u, Scal v, cl_mem res);
-  void Div(Scal u, cl_mem v, cl_mem res);
-  void Sin(cl_mem v, cl_mem res);
-  void Cos(cl_mem v, cl_mem res);
-  void Exp(cl_mem v, cl_mem res);
-  void Log(cl_mem v, cl_mem res);
-  void Sqr(cl_mem v, cl_mem res);
-  void Sqrt(cl_mem v, cl_mem res);
-  void Roll(cl_mem v, int shift_x, int shift_y, cl_mem res);
-  void Restrict(cl_mem u, size_t nx, size_t ny, cl_mem res);
-  void RestrictAdjoint(cl_mem u, size_t nx, size_t ny, cl_mem res);
-  void Interpolate(cl_mem u, size_t nx, size_t ny, cl_mem res);
-  void Conv(cl_mem v, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
+  void Add(MSize nw, cl_mem u, Scal v, cl_mem res);
+  void Sub(MSize nw, cl_mem u, Scal v, cl_mem res);
+  void Sub(MSize nw, Scal u, cl_mem v, cl_mem res);
+  void Mul(MSize nw, cl_mem u, Scal v, cl_mem res);
+  void Div(MSize nw, cl_mem u, Scal v, cl_mem res);
+  void Div(MSize nw, Scal u, cl_mem v, cl_mem res);
+  void Sin(MSize nw, cl_mem v, cl_mem res);
+  void Cos(MSize nw, cl_mem v, cl_mem res);
+  void Exp(MSize nw, cl_mem v, cl_mem res);
+  void Log(MSize nw, cl_mem v, cl_mem res);
+  void Sqr(MSize nw, cl_mem v, cl_mem res);
+  void Sqrt(MSize nw, cl_mem v, cl_mem res);
+  void Roll(MSize nw, cl_mem v, MInt shift, cl_mem res);
+
+  // Restricts field to the next coarser level.
+  // u: input buffer of size nw*2.
+  // res: output buffer of size nw.
+  void Restrict(MSize nw, cl_mem u, cl_mem res);
+
+  // Adjoint of Restrict().
+  // u: input buffer of size nw.
+  // res: output buffer of size nw*2.
+  void RestrictAdjoint(MSize nw, cl_mem u, cl_mem res);
+
+  // Interpolates field to the next finer level.
+  // u: input buffer of size nwf/2.
+  // res: output buffer of size nwf.
+  void Interpolate(MSize nwf, cl_mem u, cl_mem res);
+
+  // Adjoint of Interpolate().
+  // u: input buffer of size nw*2.
+  // res: output buffer of size nw.
+  void InterpolateAdjoint(MSize nw, cl_mem u, cl_mem res);
+
+  void Conv(MSize nw, cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
             cl_mem res);
   // Binary operations.
-  void Add(cl_mem u, cl_mem v, cl_mem res);
-  void Sub(cl_mem u, cl_mem v, cl_mem res);
-  void Mul(cl_mem u, cl_mem v, cl_mem res);
-  void Div(cl_mem u, cl_mem v, cl_mem res);
+  void Add(MSize nw, cl_mem u, cl_mem v, cl_mem res);
+  void Sub(MSize nw, cl_mem u, cl_mem v, cl_mem res);
+  void Mul(MSize nw, cl_mem u, cl_mem v, cl_mem res);
+  void Div(MSize nw, cl_mem u, cl_mem v, cl_mem res);
 
-  void LaunchImpl(int, Kernel& kernel) {
-    kernel.Enqueue(queue_, global_size_, local_size_);
+  void LaunchImpl(int, MSize global_size, Kernel& kernel) {
+    kernel.Enqueue(queue_, global_size, local_size_);
   }
   template <class T, class... Args>
-  void LaunchImpl(int pos, Kernel& kernel, const T& value,
+  void LaunchImpl(int pos, MSize global_size, Kernel& kernel, const T& value,
                   const Args&... args) {
     kernel.SetArg(pos, value);
-    LaunchImpl(pos + 1, kernel, args...);
+    LaunchImpl(pos + 1, global_size, kernel, args...);
   }
   template <class... Args>
-  void Launch(const std::string& name, const Args&... args) {
+  void Launch(const std::string& name, MSize global_size, const Args&... args) {
     auto it = kernels_.find(name);
     fassert(it != kernels_.end(), "Kernel '" + name + "' not found");
-    LaunchImpl(0, it->second, args...);
+    LaunchImpl(0, global_size, it->second, args...);
   }
 
   // Accessors.
@@ -325,16 +348,23 @@ struct OpenCL {
     return queue_;
   }
 
+  static size_t GetNumGroups(MSize global_size, MSize local_size) {
+    size_t res = 1;
+    for (size_t i = 0; i < kDim; ++i) {
+      res *= (global_size[i] + local_size[i] - 1) / local_size[i];
+    }
+    return res;
+  }
+  size_t GetNumGroups(MSize global_size) const {
+    return GetNumGroups(global_size, local_size_);
+  }
+
   Context context_;
   Device device_;
   typename Device::DeviceInfo device_info_;
   Queue queue_;
   Program program_;
   std::map<std::string, Kernel> kernels_;
-  MirroredBuffer<Scal> d_buf_reduce_;
 
-  MSize global_size_;
   MSize local_size_;
-  size_t ngroups_;
-  int lead_y_;  // leading dimension in y, factor before y in linear index
 };

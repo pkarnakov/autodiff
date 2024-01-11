@@ -1,6 +1,7 @@
 #include "opencl.h"
 
 #include <array>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -186,22 +187,17 @@ OpenCL::Kernel::~Kernel() {
   }
 }
 
-OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
+OpenCL::OpenCL(const Config& config) {
   device_.Create(config.platform);
   device_info_ = Device::GetDeviceInfo(device_.platform);
 
   fassert_equal(kDim, 2);
-  auto prod = [](MSize s) { return s[0] * s[1]; };
-  local_size_[0] = global_size_[0];
-  local_size_[1] = global_size_[1];
-  while (prod(local_size_) > device_info_.max_work_size) {
-    fassert(local_size_[0] % 2 == 0);
-    fassert(local_size_[1] % 2 == 0);
-    local_size_[0] /= 2;
-    local_size_[1] /= 2;
+  // Determine the maximum allowed local size.
+  size_t lsize = 1;
+  while (std::pow(lsize * 2, 2) <= device_info_.max_work_size) {
+    lsize *= 2;
   }
-  ngroups_ = prod(global_size_) / prod(local_size_);
-  lead_y_ = global_size_[0];
+  local_size_ = {lsize, lsize};
 
   if (config.verbose) {
     auto pinfo = Device::GetPlatformInfos()[config.platform];
@@ -216,206 +212,204 @@ OpenCL::OpenCL(const Config& config) : global_size_(config.global_size) {
   queue_.Create(context_, device_);
 
   program_.CreateFromString(kKernelSource, context_, device_);
-  d_buf_reduce_.Create(context_, ngroups_, CL_MEM_WRITE_ONLY);
-  for (std::string name : {
-           "reduce_max",        "reduce_min",
-           "reduce_sum",        "reduce_dot",
-           "assign_fill",       "assign_add",
-           "assign_sub",        "assign_subarray",
-           "scalar_add",        "scalar_sub",
-           "scalar_sub2",       "scalar_mul",
-           "scalar_div",        "scalar_div2",
-           "field_add",         "field_sub",
-           "field_mul",         "field_div",
-           "unary_sin",         "unary_cos",
-           "unary_exp",         "unary_log",
-           "unary_sqr",         "unary_sqrt",
-           "unary_roll",        "unary_conv",
-           "field_restrict",    "field_restrict_adjoint",
-           "field_interpolate",
-       }) {
+  for (std::string name : {"reduce_max",        "reduce_min",
+                           "reduce_sum",        "reduce_dot",
+                           "assign_fill",       "assign_add",
+                           "assign_sub",        "assign_subarray",
+                           "scalar_add",        "scalar_sub",
+                           "scalar_sub2",       "scalar_mul",
+                           "scalar_div",        "scalar_div2",
+                           "field_add",         "field_sub",
+                           "field_mul",         "field_div",
+                           "unary_sin",         "unary_cos",
+                           "unary_exp",         "unary_log",
+                           "unary_sqr",         "unary_sqrt",
+                           "unary_roll",        "unary_conv",
+                           "field_restrict",    "field_restrict_adjoint",
+                           "field_interpolate", "field_interpolate_adjoint"}) {
     kernels_[name].Create(program_, name);
   }
 }
 
-auto OpenCL::Max(cl_mem u) -> Scal {
-  Launch("reduce_max", lead_y_, u, d_buf_reduce_);
-  d_buf_reduce_.EnqueueRead(queue_);
-  queue_.Finish();
+auto OpenCL::Max(MSize nw, cl_mem u) -> Scal {
+  const size_t ngroups = GetNumGroups(nw);
+  MirroredBuffer<Scal> d_buf_reduce(context_, ngroups, CL_MEM_WRITE_ONLY);
+  Launch("reduce_max", nw, u, d_buf_reduce);
+  d_buf_reduce.EnqueueRead(queue_);
   Scal res = -std::numeric_limits<Scal>::max();
-  for (size_t i = 0; i < ngroups_; ++i) {
-    res = std::max(res, d_buf_reduce_[i]);
+  for (size_t i = 0; i < ngroups; ++i) {
+    res = std::max(res, d_buf_reduce[i]);
   }
   return res;
 }
 
-auto OpenCL::Min(cl_mem u) -> Scal {
-  Launch("reduce_min", lead_y_, u, d_buf_reduce_);
-  d_buf_reduce_.EnqueueRead(queue_);
-  queue_.Finish();
+auto OpenCL::Min(MSize nw, cl_mem u) -> Scal {
+  const size_t ngroups = GetNumGroups(nw);
+  MirroredBuffer<Scal> d_buf_reduce(context_, ngroups, CL_MEM_WRITE_ONLY);
+  Launch("reduce_min", nw, u, d_buf_reduce);
+  d_buf_reduce.EnqueueRead(queue_);
   Scal res = std::numeric_limits<Scal>::max();
-  for (size_t i = 0; i < ngroups_; ++i) {
-    res = std::min(res, d_buf_reduce_[i]);
+  for (size_t i = 0; i < ngroups; ++i) {
+    res = std::min(res, d_buf_reduce[i]);
   }
   return res;
 }
 
-auto OpenCL::Sum(cl_mem u) -> Scal {
-  Launch("reduce_sum", lead_y_, u, d_buf_reduce_);
-  d_buf_reduce_.EnqueueRead(queue_);
-  queue_.Finish();
+auto OpenCL::Sum(MSize nw, cl_mem u) -> Scal {
+  const size_t ngroups = GetNumGroups(nw);
+  MirroredBuffer<Scal> d_buf_reduce(context_, ngroups, CL_MEM_WRITE_ONLY);
+  Launch("reduce_sum", nw, u, d_buf_reduce);
+  d_buf_reduce.EnqueueRead(queue_);
   Scal res = 0;
-  for (size_t i = 0; i < ngroups_; ++i) {
-    res += d_buf_reduce_[i];
+  for (size_t i = 0; i < ngroups; ++i) {
+    res += d_buf_reduce[i];
   }
   return res;
 }
 
-auto OpenCL::Dot(cl_mem u, cl_mem v) -> Scal {
-  Launch("reduce_dot", lead_y_, u, v, d_buf_reduce_);
-  d_buf_reduce_.EnqueueRead(queue_);
-  queue_.Finish();
+auto OpenCL::Dot(MSize nw, cl_mem u, cl_mem v) -> Scal {
+  const size_t ngroups = 1;
+  MirroredBuffer<Scal> d_buf_reduce(context_, ngroups, CL_MEM_WRITE_ONLY);
+  Launch("reduce_dot", nw, u, v, d_buf_reduce);
+  d_buf_reduce.EnqueueRead(queue_);
   Scal res = 0;
-  for (size_t i = 0; i < ngroups_; ++i) {
-    res += d_buf_reduce_[i];
+  for (size_t i = 0; i < ngroups; ++i) {
+    res += d_buf_reduce[i];
   }
   return res;
 }
 
 template <class T>
-auto OpenCL::ReadAt(cl_mem u, int ix, int iy) -> T {
+auto OpenCL::ReadAt(MSize nw, cl_mem u, MInt iw) -> T {
   T res;
   CLCALL(clEnqueueReadBuffer(queue_, u, CL_TRUE,
-                             sizeof(T) * (iy * lead_y_ + ix), sizeof(T), &res,
-                             0, NULL, NULL));
+                             sizeof(T) * (iw[1] * nw[0] + iw[0]), sizeof(T),
+                             &res, 0, NULL, NULL));
   return res;
 }
 
 template <class T>
-void OpenCL::WriteAt(cl_mem u, int ix, int iy, T value) {
+void OpenCL::WriteAt(MSize nw, cl_mem u, MInt iw, T value) {
   CLCALL(clEnqueueWriteBuffer(queue_, u, CL_TRUE,
-                              sizeof(T) * (iy * lead_y_ + ix), sizeof(T),
+                              sizeof(T) * (iw[1] * nw[0] + iw[0]), sizeof(T),
                               &value, 0, NULL, NULL));
 }
 
-void OpenCL::Fill(cl_mem u, Scal value) {
-  Launch("assign_fill", lead_y_, u, value);
+void OpenCL::Fill(MSize nw, cl_mem u, Scal value) {
+  Launch("assign_fill", nw, u, value);
 }
 
-void OpenCL::AssignAdd(cl_mem u, cl_mem v) {
-  Launch("assign_add", lead_y_, u, v);
+void OpenCL::AssignAdd(MSize nw, cl_mem u, cl_mem v) {
+  Launch("assign_add", nw, u, v);
 }
 
-void OpenCL::AssignSub(cl_mem u, cl_mem v) {
-  Launch("assign_sub", lead_y_, u, v);
+void OpenCL::AssignSub(MSize nw, cl_mem u, cl_mem v) {
+  Launch("assign_sub", nw, u, v);
 }
 
-void OpenCL::AssignSubarray(cl_mem u, cl_mem v, MInt iu, MInt iv, MInt icnt) {
-  Launch("assign_subarray", lead_y_, u, v, iu[0], iu[1], iv[0], iv[1], icnt[0],
-         icnt[1]);
+void OpenCL::AssignSubarray(MInt nw_u, MInt nw_v, cl_mem u, cl_mem v, MInt iu,
+                            MInt iv, MSize icnt) {
+  Launch("assign_subarray", icnt, u, v, nw_u[0], nw_u[1], nw_v[0], nw_v[1],
+         iu[0], iu[1], iv[0], iv[1]);
 }
 
-void OpenCL::Add(cl_mem u, Scal v, cl_mem res) {
-  Launch("scalar_add", lead_y_, u, v, res);
+void OpenCL::Add(MSize nw, cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_add", nw, u, v, res);
 }
 
-void OpenCL::Sub(cl_mem u, Scal v, cl_mem res) {
-  Launch("scalar_sub", lead_y_, u, v, res);
+void OpenCL::Sub(MSize nw, cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_sub", nw, u, v, res);
 }
-void OpenCL::Sub(Scal u, cl_mem v, cl_mem res) {
-  Launch("scalar_sub2", lead_y_, u, v, res);
-}
-
-void OpenCL::Mul(cl_mem u, Scal v, cl_mem res) {
-  Launch("scalar_mul", lead_y_, u, v, res);
+void OpenCL::Sub(MSize nw, Scal u, cl_mem v, cl_mem res) {
+  Launch("scalar_sub2", nw, u, v, res);
 }
 
-void OpenCL::Div(cl_mem u, Scal v, cl_mem res) {
-  Launch("scalar_div", lead_y_, u, v, res);
+void OpenCL::Mul(MSize nw, cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_mul", nw, u, v, res);
 }
 
-void OpenCL::Div(Scal u, cl_mem v, cl_mem res) {
-  Launch("scalar_div2", lead_y_, u, v, res);
+void OpenCL::Div(MSize nw, cl_mem u, Scal v, cl_mem res) {
+  Launch("scalar_div", nw, u, v, res);
 }
 
-void OpenCL::Sin(cl_mem u, cl_mem res) {
-  Launch("unary_sin", lead_y_, u, res);
+void OpenCL::Div(MSize nw, Scal u, cl_mem v, cl_mem res) {
+  Launch("scalar_div2", nw, u, v, res);
 }
 
-void OpenCL::Cos(cl_mem u, cl_mem res) {
-  Launch("unary_cos", lead_y_, u, res);
+void OpenCL::Sin(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_sin", nw, u, res);
 }
 
-void OpenCL::Exp(cl_mem u, cl_mem res) {
-  Launch("unary_exp", lead_y_, u, res);
+void OpenCL::Cos(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_cos", nw, u, res);
 }
 
-void OpenCL::Log(cl_mem u, cl_mem res) {
-  Launch("unary_log", lead_y_, u, res);
+void OpenCL::Exp(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_exp", nw, u, res);
 }
 
-void OpenCL::Sqr(cl_mem u, cl_mem res) {
-  Launch("unary_sqr", lead_y_, u, res);
+void OpenCL::Log(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_log", nw, u, res);
 }
 
-void OpenCL::Sqrt(cl_mem u, cl_mem res) {
-  Launch("unary_sqrt", lead_y_, u, res);
+void OpenCL::Sqr(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_sqr", nw, u, res);
 }
 
-void OpenCL::Roll(cl_mem u, int shift_x, int shift_y, cl_mem res) {
-  const int nx = global_size_[0];
-  const int ny = global_size_[1];
-  shift_x = shift_x % nx;
-  shift_y = shift_y % ny;
-  if (shift_x < 0) {
-    shift_x += nx;
+void OpenCL::Sqrt(MSize nw, cl_mem u, cl_mem res) {
+  Launch("unary_sqrt", nw, u, res);
+}
+
+void OpenCL::Roll(MSize nw, cl_mem u, MInt shift, cl_mem res) {
+  shift[0] = shift[0] % nw[0];
+  shift[1] = shift[1] % nw[1];
+  if (shift[0] < 0) {
+    shift[0] += nw[0];
   }
-  if (shift_y < 0) {
-    shift_y += ny;
+  if (shift[1] < 0) {
+    shift[1] += nw[1];
   }
-  Launch("unary_roll", lead_y_, u, shift_x, shift_y, res);
+  Launch("unary_roll", nw, u, shift[0], shift[1], res);
 }
 
-// Restricts field `u` of size (nxf,nyf) to the next coarser level.
-// res: output buffer of size (nxf/2, nyf/2).
-void OpenCL::Restrict(cl_mem u, size_t nxf, size_t nyf, cl_mem res) {
-  fassert(nxf % 2 == 0);
-  fassert(nyf % 2 == 0);
-  auto& kernel = kernels_.at("field_restrict");
-  kernel.EnqueueWithArgs(queue_, {nxf / 2, nyf / 2}, local_size_, u, res);
+void OpenCL::Restrict(MSize nw, cl_mem u, cl_mem res) {
+  Launch("field_restrict", nw, u, res);
 }
 
-void OpenCL::RestrictAdjoint(cl_mem u, size_t nx, size_t ny, cl_mem res) {
-  auto& kernel = kernels_.at("field_restrict_adjoint");
-  kernel.EnqueueWithArgs(queue_, {nx, ny}, local_size_, u, res);
+void OpenCL::RestrictAdjoint(MSize nw, cl_mem u, cl_mem res) {
+  Launch("field_restrict_adjoint", nw, u, res);
 }
 
-void OpenCL::Interpolate(cl_mem u, size_t nx, size_t ny, cl_mem res) {
-  auto& kernel = kernels_.at("field_interpolate");
-  kernel.EnqueueWithArgs(queue_, {2 * nx, 2 * ny}, local_size_, u, res);
+void OpenCL::Interpolate(MSize nwf, cl_mem u, cl_mem res) {
+  Launch("field_interpolate", nwf, u, res);
 }
 
-void OpenCL::Conv(cl_mem u, Scal a, Scal axm, Scal axp, Scal aym, Scal ayp,
-                  cl_mem res) {
-  Launch("unary_conv", lead_y_, u, a, axm, axp, aym, ayp, res);
+void OpenCL::InterpolateAdjoint(MSize nw, cl_mem u, cl_mem res) {
+  Launch("field_interpolate_adjoint", nw, u, res);
 }
 
-void OpenCL::Add(cl_mem u, cl_mem v, cl_mem res) {
-  Launch("field_add", lead_y_, u, v, res);
+void OpenCL::Conv(MSize nw, cl_mem u, Scal a, Scal axm, Scal axp, Scal aym,
+                  Scal ayp, cl_mem res) {
+  Launch("unary_conv", nw, u, a, axm, axp, aym, ayp, res);
 }
 
-void OpenCL::Sub(cl_mem u, cl_mem v, cl_mem res) {
-  Launch("field_sub", lead_y_, u, v, res);
+void OpenCL::Add(MSize nw, cl_mem u, cl_mem v, cl_mem res) {
+  Launch("field_add", nw, u, v, res);
 }
 
-void OpenCL::Mul(cl_mem u, cl_mem v, cl_mem res) {
-  Launch("field_mul", lead_y_, u, v, res);
+void OpenCL::Sub(MSize nw, cl_mem u, cl_mem v, cl_mem res) {
+  Launch("field_sub", nw, u, v, res);
 }
 
-void OpenCL::Div(cl_mem u, cl_mem v, cl_mem res) {
-  Launch("field_div", lead_y_, u, v, res);
+void OpenCL::Mul(MSize nw, cl_mem u, cl_mem v, cl_mem res) {
+  Launch("field_mul", nw, u, v, res);
+}
+
+void OpenCL::Div(MSize nw, cl_mem u, cl_mem v, cl_mem res) {
+  Launch("field_div", nw, u, v, res);
 }
 
 // Instantiations.
-template double OpenCL::ReadAt<double>(cl_mem, int, int);
-template void OpenCL::WriteAt<double>(cl_mem, int, int, double);
+template double OpenCL::ReadAt<double>(OpenCL::MSize, cl_mem, OpenCL::MInt);
+template void OpenCL::WriteAt<double>(OpenCL::MSize, cl_mem, OpenCL::MInt,
+                                      double);
