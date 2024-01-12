@@ -404,6 +404,8 @@ class Matrix {
     return sum() / size();
   }
   T dot(const Matrix& other) const {
+    fassert_equal(nrow_, other.nrow_);
+    fassert_equal(ncol_, other.ncol_);
     return (*this * other).sum();
   }
   T min() const {

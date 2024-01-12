@@ -247,6 +247,8 @@ class MatrixCL {
   }
   T dot(const MatrixCL& other) const {
     fassert_equal(cl, other.cl);
+    fassert_equal(nw_[0], other.nw_[0]);
+    fassert_equal(nw_[1], other.nw_[1]);
     return cl->Dot(nw_, data_, other.data_);
   }
   T max() const {
@@ -345,6 +347,12 @@ class MatrixCL {
   }
   static MatrixCL ones(size_t n, CL& cl) {
     return MatrixCL::ones(n, n, cl);
+  }
+  static MatrixCL iota(size_t nrow, size_t ncol, CL& cl) {
+    return {Matrix<T>::iota(nrow, ncol), cl};
+  }
+  static MatrixCL iota(size_t n, CL& cl) {
+    return iota(n, n, cl);
   }
   template <class U>
   static MatrixCL zeros_like(const MatrixCL<U>& other) {

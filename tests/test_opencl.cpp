@@ -107,16 +107,22 @@ static void TestMatrix(CL& cl, size_t nrow) {
 }
 
 template <class Scal = double>
-static void TestMultigrid(CL& cl, size_t nrow) {
+static void TestMultigrid(CL& cl) {
   std::cout << '\n' << __func__ << std::endl;
-  auto Str = [](auto m) { return MatrixToStr(m, 3, 3); };
-  const size_t ncol = nrow;
-  MatrixCL<Scal> u(Matrix<Scal>::iota(nrow, ncol), cl);
-  PEN(Str(u));
-  PEN(Str(u.restrict()));
-  PEN(Str(u.restrict().restrict_adjoint()));
-  PEN(Str(u.restrict().interpolate()));
-  PEN(Str(u.interpolate_adjoint()));
+  using M = MatrixCL<Scal>;
+  auto matr = M::iota(6, cl);
+  auto Str = [](auto m) { return MatrixToStr(m, 4); };
+  PEN(Str(matr));
+  PEN(Str(matr.restrict()));
+  PEN(Str(matr.restrict().interpolate()));
+  PEN(Str(matr.restrict_adjoint()));
+  PEN(Str(M::iota(8, cl).interpolate_adjoint()));
+  auto ufine = M::iota(8, cl);
+  auto u = M::iota(4, cl);
+  PE(dot(u, ufine.restrict()));
+  PE(dot(ufine, u.restrict_adjoint()));
+  PE(dot(ufine, u.interpolate()));
+  PE(dot(u, ufine.interpolate_adjoint()));
 }
 
 struct Extra : public BaseExtra {
@@ -168,5 +174,5 @@ int main() {
   TestBasic(cl, 16);
   TestReverse(cl, 16);
   TestMatrix(cl, 4);
-  TestMultigrid(cl, 8);
+  TestMultigrid(cl);
 }

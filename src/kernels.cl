@@ -238,16 +238,48 @@ __kernel void field_interpolate_adjoint(__global const Scal* u,
   const int ix = get_global_id(0);
   const int iy = get_global_id(1);
   Scal usum = 0;
-  // Iterates over dx=[-2,2] in inner cells, and less near the boundaries.
-  for (int dy = -1 - min(iy, 1); dy < 2 + min(ny - 1 - iy, 1); ++dy) {
-    for (int dx = -1 - min(ix, 1); dx < 2 + min(nx - 1 - ix, 1); ++dx) {
-      const int ixf = ix * 2 + 1 + dx;
-      const int iyf = iy * 2 + 1 + dy;
-      const Scal wx = 0.25 * abs(dx);
-      const Scal wy = 0.25 * abs(dy);
+  // Iterates over dx=[-1,2] in inner cells, and less near the boundaries.
+  for (int dy = -min(iy, 1); dy < 2 + min(ny - 1 - iy, 1); ++dy) {
+    for (int dx = -min(ix, 1); dx < 2 + min(nx - 1 - ix, 1); ++dx) {
+      const int ixf = ix * 2 + dx;
+      const int iyf = iy * 2 + dy;
+      const Scal wx = 1 - 0.5 * fabs(dx - 0.5);
+      const Scal wy = 1 - 0.5 * fabs(dy - 0.5);
       usum += wx * wy * U(ixf, iyf);
     }
   }
+  // Edges.
+  for (int dx = -min(ix, 1); dx < 2 + min(nx - 1 - ix, 1); ++dx) {
+    const Scal wx = 1 - 0.5 * fabs(dx - 0.5);
+    const int ixf = ix * 2 + dx;
+    if (iy <= 1) {
+      usum += (0.5 - iy * 0.75) * U(ixf, 0) * wx;
+    }
+    if (ny - 1 - iy <= 1) {
+      usum += (0.5 - (ny - 1 - iy) * 0.75) * U(ixf, nyf - 1) * wx;
+    }
+  }
+  for (int dy = -min(iy, 1); dy < 2 + min(ny - 1 - iy, 1); ++dy) {
+    const Scal wy = 1 - 0.5 * fabs(dy - 0.5);
+    const int iyf = iy * 2 + dy;
+    if (ix <= 1) {
+      usum += (0.5 - ix * 0.75) * U(0, iyf) * wy;
+    }
+    if (nx - 1 - ix <= 1) {
+      usum += (0.5 - (nx - 1 - ix) * 0.75) * U(nxf - 1, iyf) * wy;
+    }
+  }
+#define corner(mx, my, value)            \
+  do {                                   \
+    if (mx <= 1 && my <= 1) {            \
+      const Scal w[] = {4, -2, 1};       \
+      usum += value * (w[mx + my] / 16); \
+    }                                    \
+  } while (0);
+  corner(ix, iy, U(0, 0));
+  corner(nx - 1 - ix, iy, U(nxf - 1, 0));
+  corner(ix, ny - 1 - iy, U(0, nyf - 1));
+  corner(nx - 1 - ix, ny - 1 - iy, U(nxf - 1, nyf - 1));
   res[iy * nx + ix] = usum;
 }
 

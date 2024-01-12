@@ -26,7 +26,7 @@ struct Config {
   int Nx = 64;
   int epochs = 1000;
   int frames = 10;
-  int max_nlvl = 1;
+  int max_nlvl = 4;
   double lr = 1e-3;
   double uref_k = 2;
 };
@@ -105,8 +105,7 @@ static void RunPoisson(Config config) {
   auto u = uu.back();
   for (size_t i = uu.size() - 1; i > 0;) {
     --i;
-    // TODO: Implement MatrixCL::interpolate().
-    // u = interpolate(u) + uu[i];
+    u = interpolate(u) + uu[i];
   }
   auto loss = mean(sqr(eval_lapl(u) - rhs));
   const NodeOrder<Extra> order = loss.GetFowardOrder();
