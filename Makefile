@@ -23,20 +23,15 @@ $(BUILD)/poisson: $(MAKEFILE)
 %.svg: %.gv
 	dot "$<" -Tsvg -o "$@"
 
-plot_u:
-	for u in $(BUILD)/u_*.dat ; do echo "$$u" ; ./plot_field.py "$$u" "$${u%.dat}.png" ; done
-
 run_poisson: $(BUILD)/poisson
 	cd $(BUILD) && ./poisson
 	make $(BUILD)/poisson.pdf
-	./plot_field.py $(BUILD)/uref.dat $(BUILD)/uref.png
-	make plot_u
+	./plot_field.py $(BUILD)/uref.dat $(BUILD)/u_*.dat
 
 run_poisson_cl: $(BUILD)/poisson_cl
 	cd $(BUILD) && ./poisson_cl
 	make $(BUILD)/poisson.pdf
-	./plot_field.py $(BUILD)/uref.dat $(BUILD)/uref.png
-	make plot_u
+	./plot_field.py $(BUILD)/uref.dat $(BUILD)/u_*.dat
 
 clean:
 	rm -rf $(BUILD)
@@ -49,4 +44,4 @@ test_update:
 	cd $(BUILD) && ctest -j`nproc --all`
 
 .SUFFIXES:
-.PHONY: all clean test test_update run_poisson run_poisson_cl plot_u
+.PHONY: all clean test test_update run_poisson run_poisson_cl
