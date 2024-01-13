@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=450, initial-scale=0.8, minimum-scale=0.8, maximum-scale=3">
+    <title>ODIL Poisson</title>
+    <link rel="stylesheet" href="poisson.css" />
+  </head>
+  <body>
+    <noscript>
+      <div style="color:red;">
+        This demo needs JavaScript
+      </div>
+    </noscript>
+
+    <div style="text-align: center;">
+      <div style="display: inline; vertical-align: top;">
+        <div style="display: inline-block; vertical-align: top;">
+          <div>
+            <a class="github-button" href="https://github.com/pkarnakov/autodiff" data-size="large" data-show-count="true" aria-label="Star on GitHub">Star</a>
+            <a href="https://github.com/pkarnakov/autodiff" style="position:relative; bottom:0.6em;">github.com/pkarnakov/autodiff</a>
+          </div>
+          <canvas class="emscripten" id="canvas" tabindex=-1></canvas>
+        </div>
+        <div style="margin:auto;">
+          <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
+          <input type="button" title='q' class="button" id="button_restart" value="restart" onclick="pressButton('q')">
+          <input type="button" title='i' class="button" id="button_i" value="action" onclick="pressButton('i')">
+        </div>
+        <div style="width:300px;margin:auto;text-align:left;">
+          <kbd>space</kbd> toggle pause, <kbd>q</kbd> restart, <kbd>i</kbd> action<br>
+          Mouse modes: <kbd>p</kbd> pick
+          <span id="text_accel"></span>
+        </div>
+        <div style="display: inline-block; vertical-align: top; margin: 0;">
+          <textarea class="emscripten" id="output" style="height:100px;"></textarea>
+          <textarea class="emscripten" id="outputerr" style="height:100px;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <script async defer src="libs/github_buttons.js"></script>
+    <script src="poisson_inc.js"></script>
+    <script async src="poisson.js"></script>
+  </body>
+</html>
