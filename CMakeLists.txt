@@ -103,6 +103,9 @@ if (BUILD_WASM)
   add_executable(${T} src/poisson_wasm.cpp)
   target_link_options(${T} PRIVATE "-sEXPORTED_FUNCTIONS=[\
     '_main', '_malloc' \
+    , '_GetParticles' \
+    , '_SendKeyDown', '_SendMouseMotion', '_SendMouseDown', '_SendMouseUp' \
+    , '_Init', '_SetPause', '_GetMouseMode' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
   target_compile_options(${T} PRIVATE -fexceptions)

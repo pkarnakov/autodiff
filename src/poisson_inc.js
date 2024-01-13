@@ -8,24 +8,6 @@ var g_particles;
 var g_particles_ptr;
 var g_particles_max_size = 10000;
 
-// Portals.
-var GetPortals;
-var g_portals;
-var g_portals_ptr;
-var g_portals_max_size = 10000;
-
-// Bonds.
-var GetBonds;
-var g_bonds;
-var g_bonds_ptr;
-var g_bonds_max_size = 10000;
-
-// Frozen particles.
-var GetFrozen;
-var g_frozen;
-var g_frozen_ptr;
-var g_frozen_max_size = 10000;
-
 
 // Colors.
 var c_red = "#ff1f5b";
@@ -43,19 +25,11 @@ var SendMouseMotion;
 var SendMouseDown;
 var SendMouseUp;
 
-// Gravity.
-var GetGravity;
-var SetGravity;
-var SetGravityVect;
-var g_accel;
-var flag_accel = false;
-
 // Misc
 var SetPause;
 var flag_pause = false;
 var GetMouseMode;
 var Init;
-
 
 function draw() {
   let canvas = Module['canvas'];
@@ -78,52 +52,6 @@ function draw() {
       ctx.fill();
     }
   }
-
-  { // Draw portals.
-    g_portals = new Uint16Array(Module.HEAPU8.buffer, g_portals_ptr, g_portals_max_size);
-    let size = GetPortals(g_portals.byteOffset, g_portals.length);
-    ctx.lineWidth = 5;
-    for (let i = 0; i + 1 < size; i += 4) {
-      xa = g_portals[i + 0];
-      ya = g_portals[i + 1];
-      xb = g_portals[i + 2];
-      yb = g_portals[i + 3];
-      // Do not draw empty portals, needed for incomplete pairs.
-      if (xa != xb || ya != yb) {
-        ctx.strokeStyle = (i / 4 % 2 == 0) ? c_blue : c_orange;
-        ctx.beginPath();
-        ctx.moveTo(xa, ya);
-        ctx.lineTo(xb, yb);
-        ctx.stroke();
-      }
-    }
-  }
-
-  { // Draw bonds.
-    g_bonds = new Uint16Array(Module.HEAPU8.buffer, g_bonds_ptr, g_bonds_max_size);
-    let size = GetBonds(g_bonds.byteOffset, g_bonds.length);
-    ctx.lineWidth = 7;
-    ctx.strokeStyle = "#ffffff80";
-    for (let i = 0; i + 1 < size; i += 4) {
-      ctx.beginPath();
-      ctx.moveTo(g_bonds[i + 0], g_bonds[i + 1]);
-      ctx.lineTo(g_bonds[i + 2], g_bonds[i + 3]);
-      ctx.stroke();
-    }
-  }
-
-  { // Draw frozen particles.
-    g_frozen = new Uint16Array(Module.HEAPU8.buffer, g_bonds_ptr, g_bonds_max_size);
-    let size = GetFrozen(g_frozen.byteOffset, g_frozen.length);
-    ctx.fillStyle = c_black;
-    ctx.lineWidth = 0;
-    radius = 4
-    for (let i = 0; i + 1 < size; i += 2) {
-      ctx.beginPath();
-      ctx.arc(g_frozen[i], g_frozen[i + 1], radius, 0, 2 * Math.PI, true);
-      ctx.fill();
-    }
-  }
 }
 
 function restart() {
@@ -139,15 +67,8 @@ function setButtonStyle(button_name, pressed) {
 
 function syncButtons() {
   setButtonStyle('pause', flag_pause);
-  setButtonStyle('accel', flag_accel);
   mousemode = GetMouseMode();
-  setButtonStyle('r', mousemode == 'repulsion');
-  setButtonStyle('a', mousemode == 'attraction');
-  setButtonStyle('p', mousemode == 'pick');
-  setButtonStyle('f', mousemode == 'freeze');
-  setButtonStyle('o', mousemode == 'portal');
-  setButtonStyle('b', mousemode == 'bonds');
-  setButtonStyle('g', GetGravity());
+  //setButtonStyle('p', mousemode == 'pick');
 }
 
 function togglePause() {
@@ -155,28 +76,6 @@ function togglePause() {
   syncButtons();
   SetPause(flag_pause);
 }
-
-function toggleAccel() {
-  flag_accel = !flag_accel;
-  if (flag_accel && !g_accel) {
-    try {
-      g_accel = new Accelerometer({ frequency: 5 });
-      g_accel.addEventListener("reading", () => {
-        if (flag_accel) {
-          SetGravityVect(-g_accel.x, -g_accel.y);
-          gx = -g_accel.x.toFixed(3);
-          gy = -g_accel.y.toFixed(3);
-          window.text_accel.innerHTML = `<br>gravity=(${gx}, ${gy})`;
-        }
-      });
-      g_accel.start();
-    } catch (error) {
-      console.log(error);
-    }
-  }
-  syncButtons();
-}
-
 
 function clearOutput() {
   if (output) {
@@ -217,26 +116,16 @@ function pressButton(c) {
 
 function postRun() {
   GetParticles = Module.cwrap('GetParticles', 'number', ['number', 'number']);
-  GetPortals = Module.cwrap('GetPortals', 'number', ['number', 'number']);
-  GetBonds = Module.cwrap('GetBonds', 'number', ['number', 'number']);
-  GetFrozen = Module.cwrap('GetFrozen', 'number', ['number', 'number']);
 
   SendKeyDown = Module.cwrap('SendKeyDown', null, ['number']);
   SendMouseMotion = Module.cwrap('SendMouseMotion', null, ['number', 'number']);
   SendMouseDown = Module.cwrap('SendMouseDown', null, ['number', 'number']);
   SendMouseUp = Module.cwrap('SendMouseUp', null, ['number', 'number']);
-  SetControlDebug = Module.cwrap('SetControlDebug', null, ['number']);
   SetPause = Module.cwrap('SetPause', null, ['number']);
-  GetGravity = Module.cwrap('GetGravity', 'number', []);
-  SetGravity = Module.cwrap('SetGravity', null, ['number']);
-  SetGravityVect = Module.cwrap('SetGravityVect', null, ['number', 'number']);
   GetMouseMode = Module.cwrap('GetMouseMode', 'string', []);
   Init = Module.cwrap('Init', null, []);
 
   g_particles_ptr = Module._malloc(g_particles_max_size * 2);
-  g_portals_ptr = Module._malloc(g_portals_max_size * 2);
-  g_bonds_ptr = Module._malloc(g_bonds_max_size * 2);
-  g_frozen_ptr = Module._malloc(g_frozen_max_size * 2);
 
   let canvas = Module['canvas'];
   g_tmp_canvas = document.createElement('canvas');
@@ -308,10 +197,7 @@ function postRun() {
 
   // Disable Space on buttons.
   [
-    window.button_pause, window.button_restart,
-    window.button_r, window.button_a, window.button_p,
-    window.button_f, window.button_o, window.button_b,
-    window.button_i, window.button_g,
+    window.button_pause, window.button_restart, window.button_i,
   ].forEach(b => {
     b.addEventListener('keydown', function(e){
       if (e.key == ' ') {
