@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=450, initial-scale=0.8, minimum-scale=0.8, maximum-scale=3">
+    <title>ptoy</title>
+    <link rel="stylesheet" href="ptoy.css" />
+  </head>
+  <body>
+    <noscript>
+      <div style="color:red;">
+        This demo needs JavaScript
+      </div>
+    </noscript>
+
+    <div style="text-align: center;">
+      <div style="display: inline; vertical-align: top;">
+        <div style="display: inline-block; vertical-align: top;">
+          <div>
+            <a class="github-button" href="https://github.com/pkarnakov/ptoy" data-size="large" data-show-count="true" aria-label="Star on GitHub">Star</a>
+            <a href="https://github.com/pkarnakov/ptoy" style="position:relative; bottom:0.6em;">github.com/pkarnakov/ptoy</a>
+          </div>
+          <canvas class="emscripten" id="canvas" tabindex=-1></canvas>
+        </div>
+        <div style="margin:auto;">
+          <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
+          <input type="button" title='q' class="button" id="button_restart" value="restart" onclick="pressButton('q')">
+          <input type="button" title='i' class="button" id="button_i" value="remove portal" onclick="pressButton('i')">
+          <input type="button" title='g' class="button" id="button_g" value="gravity" onclick="pressButton('g')">
+          <input type="button" title='use accelerometer' class="button" id="button_accel" value="accel" onclick="toggleAccel()">
+          <br>
+          <input type="button" title='r' class="button" id="button_r" value="repulse" onclick="pressButton('r')">
+          <input type="button" title='a' class="button" id="button_a" value="attract" onclick="pressButton('a')">
+          <input type="button" title='p' class="button" id="button_p" value="pick" onclick="pressButton('p')">
+          <input type="button" title='f' class="button" id="button_f" value="freeze" onclick="pressButton('f')">
+          <input type="button" title='o' class="button" id="button_o" value="portal" onclick="pressButton('o')">
+          <input type="button" title='b' class="button" id="button_b" value="bond" onclick="pressButton('b')">
+        </div>
+        <div style="width:300px;margin:auto;text-align:left;">
+          <kbd>space</kbd>: toggle pause<br>
+          <kbd>q</kbd>: restart<br>
+          <kbd>i</kbd>: remove last pair of portals<br>
+          <kbd>g</kbd>: toggle gravity<br>
+          Mouse modes:<br>
+          <kbd>r</kbd>: repulse,
+          <kbd>a</kbd>: attract,
+          <kbd>p</kbd>: pick<br>
+          <kbd>f</kbd>: freeze,
+          <kbd>o</kbd>: portal,
+          <kbd>b</kbd>: bond
+          <span id="text_accel"></span>
+        </div>
+        <!---
+        <div style="display: inline-block; vertical-align: top; margin: 0;">
+          <textarea class="emscripten" id="output" style="height:200px;"></textarea>
+          <textarea class="emscripten" id="outputerr" style="height:200px;"></textarea>
+        </div>
+        -->
+      </div>
+    </div>
+
+    <script src="libs/lz-string.js"></script>
+    <script async defer src="libs/github_buttons.js"></script>
+    <script src="ptoy_inc.js"></script>
+    <script async src="ptoy.js"></script>
+  </body>
+</html>
