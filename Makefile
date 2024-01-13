@@ -1,14 +1,13 @@
 PANDOC = pandoc
-PFLAGS =
 STYLE = .
-REPO = ../autodiff
+REPO = ..
 RSYNC = rsync -a -i --update
 
 all: \
 	index.html \
 
 .md.html:
-	$(PANDOC) -s --css $(STYLE)/pandoc.css $(PFLAGS) "$<" -o "$@"
+	$(PANDOC) -s --css $(STYLE)/pandoc.css "$<" -o "$@"
 
 wasm:
 	(cd "$(REPO)" && git rev-parse --short HEAD) > .gitrev
