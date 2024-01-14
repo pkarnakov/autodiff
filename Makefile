@@ -11,7 +11,7 @@ all: \
 
 wasm:
 	(cd "$(REPO)" && git rev-parse --short HEAD) > .gitrev
-	$(RSYNC) $(REPO)/build_wasm/{poisson{.js,.wasm,_inc.js,.css},libs} poisson/
+	$(RSYNC) $(REPO)/build_wasm/{poisson{.js,.wasm,_inc.js,.css},favicon.png,libs} poisson/
 	$(RSYNC) $(REPO)/build_wasm/poisson.html poisson/index.html
 
 commit:
