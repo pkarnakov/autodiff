@@ -100,7 +100,7 @@ endif()
 if (BUILD_WASM)
   set(T poisson)
   add_link_options(-sALLOW_MEMORY_GROWTH=1)
-  add_executable(${T} src/poisson_wasm.cpp)
+  add_executable(${T} wasm/poisson.cpp)
   target_link_options(${T} PRIVATE "-sEXPORTED_FUNCTIONS=[\
     '_main', '_malloc' \
     , '_GetBitmapWidth', '_GetBitmapHeight' \
@@ -114,9 +114,9 @@ if (BUILD_WASM)
   target_compile_options(${T} PRIVATE -Wno-dollar-in-identifier-extension)
   target_compile_options(${T} PRIVATE -Wno-gnu-zero-variadic-macro-arguments)
   set_target_properties(${T} PROPERTIES OUTPUT_NAME poisson)
-  configure_file(src/poisson.html poisson.html COPYONLY)
-  configure_file(src/poisson.css poisson.css COPYONLY)
-  configure_file(src/poisson_inc.js poisson_inc.js COPYONLY)
-  configure_file(src/libs/github_buttons.js libs/github_buttons.js COPYONLY)
+  configure_file(wasm/poisson.html poisson.html COPYONLY)
+  configure_file(wasm/poisson.css poisson.css COPYONLY)
+  configure_file(wasm/poisson_inc.js poisson_inc.js COPYONLY)
+  configure_file(wasm/libs/github_buttons.js libs/github_buttons.js COPYONLY)
 endif()
 
