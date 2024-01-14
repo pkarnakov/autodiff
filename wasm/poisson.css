@@ -1,6 +1,5 @@
 html, body {
   font-family: Arial, sans-serif;
-  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -9,46 +8,27 @@ html, body {
   width: 100%;
   padding: 0;
   margin: 0;
-  height:100px;
+  height:10em;
 }
 #content_column {
   margin: auto;
-  margin-top: 0px;
-  padding: 10px 10px 0px 10px;
+  margin-top: 0;
+  padding: 0.5em;
   text-align: center;
-  width: 450px;
 }
 .row {
-  margin: 5px 0px 5px 0px;
+  margin: 0.5em 0 0.5em 0;
 }
 #canvas {
-  border: 1px solid;
-  border-radius: 0;
+  outline: 1px black solid;
   background-color: white;
-  width: 450px;
-  height: 450px;
+  width: 100%;
+  aspect-ratio: 1;
 }
 body {
   display: flex;
   flex-flow: column;
 }
-h1 {
-  text-align: center;
-}
-label {
-  display: block;
-  padding-left: 2px;
-  padding-top: 2px;
-}
-textarea {
-  flex: 1;
-  display: block;
-  margin: 0;
-  padding: 0;
-  border: 1px solid;
-  font-family: monospace;
-}
-
 .button {
   background: #ffffff;
   vertical-align: baseline;
@@ -70,20 +50,11 @@ textarea {
   background: #808080;
 }
 .pressed {
-  box-shadow:0px 0px 0px 2px #ff1f5b inset;
+  box-shadow:0 0 0 2px #ff1f5b inset;
   border-color: #ff1f5b;
-}
-h1 a, h2 a, h3 a, h4 a, h5 a { 
-    text-decoration: none;
-    color: #009ADE; 
 }
 a {
   color: #0082BB;
-}
-a:link {
-  text-decoration: none;
-}
-a:visited {
   text-decoration: none;
 }
 a:hover {
@@ -104,7 +75,7 @@ kbd {
   white-space:nowrap;
 }
 #text_status {
-  margin-top: 10px;
+  margin-top: 0.5em;
   font-family: Courier New, monospace;
   font-size: 1em;
   text-align: left;
