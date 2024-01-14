@@ -20,7 +20,7 @@ make
 ## Interactive demos
 
 These demos run interactively in the web browser through [Emscripten](https://emscripten.org).
-They solve problems for partial differential equations using the [ODIL](https://github.com/cselab/odil) framework.
+They solve problems for partial differential equations using [ODIL](https://github.com/cselab/odil).
 
 | [<img src="https://cselab.github.io/odil/media/wasm_poisson.png" width=120>](https://pkarnakov.github.io/autodiff/poisson) |
 |:---:|
