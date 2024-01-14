@@ -1,5 +1,6 @@
-var output = document.getElementById('output');
-var outputerr = document.getElementById('outputerr');
+var debug = false;
+var textarea_out;
+var textarea_err;
 var g_shared_canvas;
 
 // Colors.
@@ -56,23 +57,23 @@ function togglePause() {
 }
 
 function clearOutput() {
-  if (output) {
-    output.value = '';
+  if (textarea_out) {
+    textarea_out.value = '';
   }
-  if (outputerr) {
-    outputerr.value = '';
-  }
-}
-function print(text) {
-  if (output) {
-    output.value += text + "\n";
-    output.scrollTop = output.scrollHeight;
+  if (textarea_err) {
+    textarea_err.value = '';
   }
 }
-function printError(text) {
-  if (outputerr) {
-    outputerr.value += text + "\n";
-    outputerr.scrollTop = outputerr.scrollHeight;
+function printOut(text) {
+  if (textarea_out) {
+    textarea_out.value += text + "\n";
+    textarea_out.scrollTop = textarea_out.scrollHeight;
+  }
+}
+function printErr(text) {
+  if (textarea_err) {
+    textarea_err.value += text + "\n";
+    textarea_err.scrollTop = textarea_err.scrollHeight;
   }
 }
 
@@ -89,6 +90,21 @@ function pressButton(c) {
   } else {
     sendKeyDownChar(c);
     syncButtons();
+  }
+}
+
+function preRun() {
+  if (debug) {
+    const fragment = document.createDocumentFragment();
+    const div = fragment.appendChild(document.createElement("div"));
+    div.className = "row";
+    textarea_out = document.createElement("textarea")
+    textarea_out.id = "textarea_out";
+    div.appendChild(textarea_out);
+    textarea_err = document.createElement("textarea")
+    textarea_err.id = "textarea_err";
+    div.appendChild(textarea_err);
+    window.content_column.appendChild(fragment);
   }
 }
 
@@ -109,15 +125,15 @@ function postRun() {
   g_shared_canvas.height = GetBitmapHeight();
 
   let handler_keydown = function(e) {
-    if (e.key == ' ') {
-      togglePause();
+    let nodename = e.target.nodeName;
+    if (nodename == 'TEXTAREA') {
       return;
     }
-    pressButton(e.key);
-    // Prevent scrolling by Space.
-    if(e.keyCode == 32 && e.target == document.body) {
+    if (e.key == ' ') {
       e.preventDefault();
+      togglePause();
     }
+    pressButton(e.key);
   };
   let get_xy = function(e) {
     let x = e.offsetX / canvas.clientWidth;
@@ -171,27 +187,11 @@ function postRun() {
   canvas.addEventListener('touchstart', handler_touchstart);
   canvas.addEventListener('touchend', handler_touchend);
 
-  // Disable Space on buttons.
-  [
-    window.button_pause, window.button_restart,
-  ].forEach(b => {
-    b.addEventListener('keydown', function(e){
-      if (e.key == ' ') {
-        e.preventDefault();
-      }
-    }, false);
-    b.addEventListener('keyup', function(e){
-      if (e.key == ' ') {
-        e.preventDefault();
-      }
-    }, false);
-  });
-
   syncButtons();
 }
 
 var Module = {
-  preRun: [],
+  preRun: [preRun],
   postRun: [postRun],
   print: (function(text) {
     clearOutput();
@@ -199,7 +199,7 @@ var Module = {
       if (arguments.length > 1) {
         text = Array.prototype.slice.call(arguments).join(' ');
       }
-      print(text);
+      printOut(text);
     };
   })(),
   printErr: (function(text) {
@@ -208,7 +208,7 @@ var Module = {
       if (arguments.length > 1) {
         text = Array.prototype.slice.call(arguments).join(' ');
       }
-      printError(text);
+      printErr(text);
     };
   })(),
   canvas: (function() { return document.getElementById('canvas'); })(),
