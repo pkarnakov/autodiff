@@ -2,13 +2,6 @@ var output = document.getElementById('output');
 var outputerr = document.getElementById('outputerr');
 var g_tmp_canvas;
 
-// Particles.
-var GetParticles;
-var g_particles;
-var g_particles_ptr;
-var g_particles_max_size = 10000;
-
-
 // Colors.
 var c_red = "#ff1f5b";
 var c_green = "#00cd6c";
@@ -25,33 +18,19 @@ var SendMouseMotion;
 var SendMouseDown;
 var SendMouseUp;
 
-// Misc
+// Misc.
 var SetPause;
+var GetStatusString;
+var GetBitmapWidth;
+var GetBitmapHeight;
 var flag_pause = false;
-var GetMouseMode;
 var Init;
 
 function draw() {
   let canvas = Module['canvas'];
   let ctx = canvas.getContext('2d');
   ctx.drawImage(g_tmp_canvas, 0, 0, canvas.width, canvas.height);
-
-  // Clear the canvas.
-  ctx.fillStyle = c_background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  { // Draw particles.
-    g_particles = new Uint16Array(Module.HEAPU8.buffer, g_particles_ptr, g_particles_max_size);
-    let size = GetParticles(g_particles.byteOffset, g_particles.length);
-    ctx.fillStyle = c_green;
-    ctx.lineWidth = 0;
-    radius = 7
-    for (let i = 0; i + 1 < size; i += 2) {
-      ctx.beginPath();
-      ctx.arc(g_particles[i], g_particles[i + 1], radius, 0, 2 * Math.PI, true);
-      ctx.fill();
-    }
-  }
+  window.text_status.innerHTML = GetStatusString();
 }
 
 function restart() {
@@ -67,8 +46,6 @@ function setButtonStyle(button_name, pressed) {
 
 function syncButtons() {
   setButtonStyle('pause', flag_pause);
-  mousemode = GetMouseMode();
-  //setButtonStyle('p', mousemode == 'pick');
 }
 
 function togglePause() {
@@ -106,7 +83,7 @@ function sendKeyDownChar(c) {
 }
 
 function pressButton(c) {
-  if (c == 'q') {
+  if (c == 'r') {
     restart();
   } else {
     sendKeyDownChar(c);
@@ -115,22 +92,20 @@ function pressButton(c) {
 }
 
 function postRun() {
-  GetParticles = Module.cwrap('GetParticles', 'number', ['number', 'number']);
-
   SendKeyDown = Module.cwrap('SendKeyDown', null, ['number']);
   SendMouseMotion = Module.cwrap('SendMouseMotion', null, ['number', 'number']);
   SendMouseDown = Module.cwrap('SendMouseDown', null, ['number', 'number']);
   SendMouseUp = Module.cwrap('SendMouseUp', null, ['number', 'number']);
   SetPause = Module.cwrap('SetPause', null, ['number']);
-  GetMouseMode = Module.cwrap('GetMouseMode', 'string', []);
+  GetStatusString = Module.cwrap('GetStatusString', 'string', []);
+  GetBitmapWidth = Module.cwrap('GetBitmapWidth', 'number', []);
+  GetBitmapHeight = Module.cwrap('GetBitmapHeight', 'number', []);
   Init = Module.cwrap('Init', null, []);
-
-  g_particles_ptr = Module._malloc(g_particles_max_size * 2);
 
   let canvas = Module['canvas'];
   g_tmp_canvas = document.createElement('canvas');
-  g_tmp_canvas.width = canvas.width;
-  g_tmp_canvas.height = canvas.height;
+  g_tmp_canvas.width = GetBitmapWidth();
+  g_tmp_canvas.height = GetBitmapHeight();
 
   let handler_keydown = function(e) {
     if (e.key == ' ') {
@@ -144,14 +119,14 @@ function postRun() {
     }
   };
   let get_xy = function(e) {
-    let x = -1 + 2 * e.offsetX / canvas.clientWidth;
-    let y = 1 - 2 * e.offsetY / canvas.clientHeight;
+    let x = e.offsetX / canvas.clientWidth;
+    let y = 1 - e.offsetY / canvas.clientHeight;
     return [x, y]
   };
   let get_touch_xy = function(e, touch) {
     var rect = e.target.getBoundingClientRect();
-    var x = -1 + 2 * (e.changedTouches[0].pageX - rect.left) / canvas.clientWidth;
-    var y = 1 - 2 * (e.changedTouches[0].pageY - rect.top) / canvas.clientHeight;
+    var x = (e.changedTouches[0].pageX - rect.left) / canvas.clientWidth;
+    var y = 1 - (e.changedTouches[0].pageY - rect.top) / canvas.clientHeight;
     return [x, y]
   };
 
