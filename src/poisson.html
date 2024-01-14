@@ -26,18 +26,20 @@
         </div>
         <div style="margin:auto;">
           <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
-          <input type="button" title='q' class="button" id="button_restart" value="restart" onclick="pressButton('q')">
-          <input type="button" title='i' class="button" id="button_i" value="action" onclick="pressButton('i')">
+          <input type="button" title='r' class="button" id="button_restart" value="restart" onclick="pressButton('r')">
+          <input type="button" title='o' class="button" id="button_o" value="reset opt" onclick="pressButton('o')">
         </div>
-        <div style="width:300px;margin:auto;text-align:left;">
-          <kbd>space</kbd> toggle pause, <kbd>q</kbd> restart, <kbd>i</kbd> action<br>
-          Mouse modes: <kbd>p</kbd> pick
-          <span id="text_accel"></span>
+        <div style="width:400px;margin:auto;text-align:left;">
+          <kbd>click</kbd> draw mask,<br>
+          <kbd>space</kbd> toggle pause, <kbd>r</kbd> restart, <kbd>o</kbd> reset optimizer<br>
+          <span id="text_status" style="margin-top:5px;"></span>
         </div>
+        <!--
         <div style="display: inline-block; vertical-align: top; margin: 0;">
           <textarea class="emscripten" id="output" style="width:800px;height:100px;"></textarea>
           <textarea class="emscripten" id="outputerr" style="width:800px;height:100px;"></textarea>
         </div>
+        -->
       </div>
     </div>
 
