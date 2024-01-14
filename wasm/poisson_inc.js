@@ -1,6 +1,6 @@
 var output = document.getElementById('output');
 var outputerr = document.getElementById('outputerr');
-var g_tmp_canvas;
+var g_shared_canvas;
 
 // Colors.
 var c_red = "#ff1f5b";
@@ -29,7 +29,7 @@ var Init;
 function draw() {
   let canvas = Module['canvas'];
   let ctx = canvas.getContext('2d');
-  ctx.drawImage(g_tmp_canvas, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(g_shared_canvas, 0, 0, canvas.width, canvas.height);
   window.text_status.innerHTML = GetStatusString();
 }
 
@@ -103,9 +103,9 @@ function postRun() {
   Init = Module.cwrap('Init', null, []);
 
   let canvas = Module['canvas'];
-  g_tmp_canvas = document.createElement('canvas');
-  g_tmp_canvas.width = GetBitmapWidth();
-  g_tmp_canvas.height = GetBitmapHeight();
+  g_shared_canvas = document.createElement('canvas');
+  g_shared_canvas.width = GetBitmapWidth();
+  g_shared_canvas.height = GetBitmapHeight();
 
   let handler_keydown = function(e) {
     if (e.key == ' ') {

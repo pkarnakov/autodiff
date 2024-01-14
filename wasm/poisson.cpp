@@ -15,11 +15,12 @@
 #include <sstream>
 #include <vector>
 
+#include "graphics.h"
 #include "matrix.h"
 #include "optimizer.h"
 #include "reverse.h"
 
-using Scal = double;
+using Scal = float;
 using Vect = std::array<Scal, 2>;
 using M = Matrix<Scal>;
 using Extra = BaseExtra;
@@ -35,10 +36,6 @@ struct Scene {
   Scal lr = 1e-3;
   Scal uref_k = 2;
   std::array<Scal, 2> ulim = {-0.8, 0.8};
-
-  // Control flags.
-  bool is_pause = false;
-  bool is_mouse_down = false;
 
   // Solver state.
   Matrix<Scal> uref;                            // Reference solution.
@@ -63,19 +60,12 @@ struct Scene {
   // Data buffers.
   std::vector<uint32_t> bitmap;
 
-  // Visualization.
+  // Control and visualization.
+  Scal circle_radius = 3;  // Radius of circle drawn on the mask on mouse click.
+  bool is_pause = false;
+  bool is_mouse_down = false;
   std::vector<char> status_string = {0};
 };
-
-int Select(Scal u, int min, int max) {
-  return std::min<int>(max,
-                       std::max<int>(min, std::round((1 - u) * min + u * max)));
-}
-
-template <class T>
-T Clip(T u, T min, T max) {
-  return std::min<T>(max, std::max<T>(min, u));
-}
 
 std::shared_ptr<Scene> g_scene;
 
@@ -163,90 +153,21 @@ static void InitScene(Scene& scene) {
   scene.optimizer = std::make_unique<Adam>();
 }
 
-void CopyToCanvas(uint32_t* buf, int w, int h) {
-  EM_ASM_(
-      {
-        let data = Module.HEAPU8.slice($0, $0 + $1 * $2 * 4);
-        let tctx = g_tmp_canvas.getContext("2d");
-        let image = tctx.getImageData(0, 0, $1, $2);
-        image.data.set(data);
-        tctx.putImageData(image, 0, 0);
-      },
-      buf, w, h);
-}
-
-void UpdateScene() {
+static void UpdateScene() {
   auto& scene = *g_scene;
   if (scene.is_pause) {
     return;
   }
-  {
-    /*
-    auto& state = scene.optimizer->state();
-    // Clear optimizer state, to adapt to changing mask.
-    state.vv.clear();
-    state.mm.clear();
-    */
-  }
   scene.optimizer->Run(scene.opt_config, scene.opt_vars, scene.opt_grads,
                        scene.update_grads, scene.callback);
   const auto& u = scene.u.value();
-  const auto& mask = scene.mask.value();
-  scene.bitmap.resize(u.size());
-  const auto& ulim = scene.ulim;
-  auto linear = [](Scal x, Scal x0, Scal x1, Scal u0, Scal u1) {
-    return ((x1 - x) * u0 + (x - x0) * u1) / (x1 - x0);
-  };
-  const Scal c3[] = {0, 0.95, 0.6};  // Green.
-  auto color = [linear](Scal v, int k) {
-    const Scal c0[] = {0.34, 0.17, 0.54};  // Blue.
-    const Scal c1[] = {0.97, 0.97, 0.97};  // White.
-    const Scal c2[] = {0.85, 0.5, 0.07};   // Orange.
-    return (v < 0.5 ? linear(v, 0, 0.5, c0[k], c1[k])
-                    : linear(v, 0.5, 1, c1[k], c2[k]));
-  };
-  auto blend = [](Scal c, Scal ca, Scal a) {  //
-    return c * (1 - a) + ca * a;
-  };
-  auto round = [](Scal c) -> uint8_t {
-    return std::max<Scal>(0, std::min<Scal>(255, std::round(c * 255)));
-  };
-  for (size_t i = 0; i < u.nrow(); ++i) {
-    for (size_t j = 0; j < u.ncol(); ++j) {
-      const Scal vu = std::max<Scal>(
-          0, std::min<Scal>(1, (u(i, j) - ulim[0]) / (ulim[1] - ulim[0])));
-      const Scal vmask = mask(i, j);
-      const uint8_t r = round(blend(color(vu, 0), c3[0], vmask * 0.5));
-      const uint8_t g = round(blend(color(vu, 1), c3[1], vmask * 0.5));
-      const uint8_t b = round(blend(color(vu, 2), c3[2], vmask * 0.5));
-      scene.bitmap[j * u.ncol() + i] = (0xff << 24) | (b << 16) | (g << 8) | r;
-    }
-  }
+  const Matrix<float> unorm =
+      (u - scene.ulim[0]) / (scene.ulim[1] - scene.ulim[0]);
+  DrawFieldsOnBitmap(unorm, scene.mask.value(), scene.bitmap);
   CopyToCanvas(scene.bitmap.data(), u.ncol(), u.nrow());
 }
 
-void DrawCircle(Scal x, Scal y) {
-  auto& scene = *g_scene;
-  auto& mask = scene.var_mask->value();
-  const int ic = Select(x, 0, mask.nrow() - 1);
-  const int jc = Select(1 - y, 0, mask.ncol() - 1);
-  const int w = 3;
-  auto kernel = [](int dx, int dy) -> Scal {  //
-    return Clip<Scal>(0, 1, 2 * (1 - std::sqrt(sqr(dx) + sqr(dy)) / w));
-  };
-  const int i0 = Clip<int>(ic - w, 0, mask.nrow());
-  const int i1 = Clip<int>(ic + w, 0, mask.nrow());
-  const int j0 = Clip<int>(jc - w, 0, mask.ncol());
-  const int j1 = Clip<int>(jc + w, 0, mask.ncol());
-  for (int i = i0; i < i1; ++i) {
-    for (int j = j0; j < j1; ++j) {
-      const Scal a = kernel(i - ic, j - jc);
-      mask(i, j) = Clip<Scal>(a + mask(i, j) * (1 - a), 0, 1);
-    }
-  }
-}
-
-void ResetOptimizer() {
+static void ResetOptimizer() {
   auto& scene = *g_scene;
   auto& state = scene.optimizer->state();
   // Clear optimizer state, to adapt to changing mask.
@@ -274,13 +195,13 @@ void SendMouseMotion(Scal x, Scal y) {
   if (!scene.is_mouse_down) {
     return;
   }
-  DrawCircle(x, y);
+  DrawCircleOnMask(scene.var_mask->value(), x, y, scene.circle_radius);
 }
 
 void SendMouseDown(Scal x, Scal y) {
   auto& scene = *g_scene;
   scene.is_mouse_down = true;
-  DrawCircle(x, y);
+  DrawCircleOnMask(scene.var_mask->value(), x, y, scene.circle_radius);
 }
 
 void SendMouseUp(Scal x, Scal y) {

@@ -98,9 +98,32 @@ if (USE_OPENCL)
 endif()
 
 if (BUILD_WASM)
+  if(BUILD_POISSON)
+    message(SEND_ERROR "Option BUILD_WASM requires BUILD_POISSON=OFF")
+    set(BUILD_POISSON OFF CACHE BOOL "" FORCE)
+  endif()
+  if(BUILD_TESTS)
+    message(SEND_ERROR "Option BUILD_WASM requires BUILD_TESTS=OFF")
+    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  endif()
+  if(USE_OPENCL)
+    message(SEND_ERROR "Option BUILD_WASM requires USE_OPENCL=OFF")
+    set(USE_OPENCL OFF CACHE BOOL "" FORCE)
+  endif()
+
+  # FIXME: Enable memory growth if needed.
+  #add_link_options(-sALLOW_MEMORY_GROWTH=1)
+
+  # Suppress spurious warnings.
+  add_compile_options(-Wno-dollar-in-identifier-extension)
+  add_compile_options(-Wno-gnu-zero-variadic-macro-arguments)
+
+  set(T graphics)
+  add_library(${T} wasm/graphics.cpp)
+
   set(T poisson)
-  add_link_options(-sALLOW_MEMORY_GROWTH=1)
   add_executable(${T} wasm/poisson.cpp)
+  target_link_libraries(${T} graphics)
   target_link_options(${T} PRIVATE "-sEXPORTED_FUNCTIONS=[\
     '_main', '_malloc' \
     , '_GetBitmapWidth', '_GetBitmapHeight' \
@@ -108,11 +131,6 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  target_compile_options(${T} PRIVATE -fexceptions)
-  target_link_options(${T} PRIVATE -fexceptions)
-  # Suppress spurious warnings.
-  target_compile_options(${T} PRIVATE -Wno-dollar-in-identifier-extension)
-  target_compile_options(${T} PRIVATE -Wno-gnu-zero-variadic-macro-arguments)
   set_target_properties(${T} PROPERTIES OUTPUT_NAME poisson)
   configure_file(wasm/poisson.html poisson.html COPYONLY)
   configure_file(wasm/poisson.css poisson.css COPYONLY)
