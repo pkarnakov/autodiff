@@ -1,9 +1,3 @@
 /build
 /build_wasm
 /pages
-
-*.gv
-*.pdf
-*.svg
-*.png
-*.dat

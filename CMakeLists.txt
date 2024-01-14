@@ -134,6 +134,7 @@ if (BUILD_WASM)
   configure_file(wasm/poisson.html poisson.html COPYONLY)
   configure_file(wasm/poisson.css poisson.css COPYONLY)
   configure_file(wasm/poisson_inc.js poisson_inc.js COPYONLY)
+  configure_file(wasm/favicon.png favicon.png COPYONLY)
   configure_file(wasm/libs/github_buttons.js libs/github_buttons.js COPYONLY)
 endif()
 
