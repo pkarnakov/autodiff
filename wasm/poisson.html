@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <link rel="icon" type="image/png" href="favicon.png">
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <meta name="viewport" content="width=450, initial-scale=0.8, minimum-scale=0.8, maximum-scale=3">
+    <meta name="viewport" content="width=470">
     <title>ODIL Poisson</title>
     <link rel="stylesheet" href="poisson.css" />
   </head>
@@ -15,33 +15,24 @@
       </div>
     </noscript>
 
-    <div style="text-align: center;">
-      <div style="display: inline; vertical-align: top;">
-        <div style="display: inline-block; vertical-align: top;">
-          <div>
-            <a class="github-button" href="https://github.com/pkarnakov/autodiff" data-size="large" data-show-count="true" aria-label="Star on GitHub">Star</a>
-            <a href="https://github.com/pkarnakov/autodiff" style="position:relative; bottom:0.6em;">github.com/pkarnakov/autodiff</a>
-          </div>
-          <canvas class="emscripten" id="canvas" tabindex=-1></canvas>
-        </div>
-        <div style="margin:auto;">
-          <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
-          <input type="button" title='r' class="button" id="button_restart" value="restart" onclick="pressButton('r')">
-        </div>
-        <div style="width:400px;margin:auto;text-align:left;">
-          <kbd>click</kbd> draw mask,
-          <kbd>space</kbd> toggle pause,
-          <kbd>r</kbd> restart
-          <br>
-          <div id="text_status" style="margin-top:10px;"></div>
-        </div>
-        <!--
-        <div style="display: inline-block; vertical-align: top; margin: 0;">
-          <textarea class="emscripten" id="output" style="width:800px;height:100px;"></textarea>
-          <textarea class="emscripten" id="outputerr" style="width:800px;height:100px;"></textarea>
-        </div>
-        -->
+    <div id="content_column">
+      <div class="row">
+        <a class="github-button" href="https://github.com/pkarnakov/autodiff" data-size="large" data-show-count="true" aria-label="Star on GitHub">Star</a>
+        <a href="https://github.com/pkarnakov/autodiff" style="position:relative; bottom:0.6em;">github.com/pkarnakov/autodiff</a>
       </div>
+      <div class="row">
+        <canvas id="canvas" tabindex=-1></canvas>
+      </div>
+      <div class="row">
+        <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
+        <input type="button" title='r' class="button" id="button_restart" value="restart" onclick="pressButton('r')">
+      </div>
+      <div class="row">
+        <span class="kbdspan"><kbd>click</kbd> draw mask</span>,
+        <span class="kbdspan"><kbd>space</kbd> toggle pause</span>,
+        <span class="kbdspan"><kbd>r</kbd> restart</span>
+      </div>
+      <div class="row" id="text_status"></div>
     </div>
 
     <script async defer src="libs/github_buttons.js"></script>

@@ -28,8 +28,6 @@ using Clock = std::chrono::steady_clock;
 using Adam = optimizer::Adam<Scal>;
 
 struct Scene {
-  int width = 512;
-  int height = 512;
   int Nx = 128;
   int epochs_per_frame = 20;
   int max_nlvl = 4;
@@ -176,7 +174,7 @@ static void InitScene(Scene& scene) {
   scene.optimizer = std::make_unique<Adam>();
 }
 
-static void UpdateScene() {
+static void AdvanceScene() {
   auto& scene = *g_scene;
   if (scene.is_pause) {
     return;
@@ -251,13 +249,11 @@ char* GetStatusString() {
 }  // extern "C"
 
 static void main_loop() {
-  UpdateScene();
+  AdvanceScene();
   EM_ASM({ draw(); });
 }
 
 int main() {
   Init();
-  auto& scene = *g_scene;
-  emscripten_set_canvas_element_size("#canvas", scene.width, scene.height);
   emscripten_set_main_loop(main_loop, 0, 1);
 }

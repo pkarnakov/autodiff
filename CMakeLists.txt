@@ -111,8 +111,7 @@ if (BUILD_WASM)
     set(USE_OPENCL OFF CACHE BOOL "" FORCE)
   endif()
 
-  # FIXME: Enable memory growth if needed.
-  #add_link_options(-sALLOW_MEMORY_GROWTH=1)
+  add_link_options(-sALLOW_MEMORY_GROWTH=1)
 
   # Suppress spurious warnings.
   add_compile_options(-Wno-dollar-in-identifier-extension)
