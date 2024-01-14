@@ -81,3 +81,10 @@ kbd {
   font-size: 1em;
   text-align: left;
 }
+.axes {
+  height: 2.5em;
+  width: 2.5em;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}

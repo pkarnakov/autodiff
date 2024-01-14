@@ -13,6 +13,9 @@ wasm:
 	(cd "$(REPO)" && git rev-parse --short HEAD) > .gitrev
 	$(RSYNC) $(REPO)/build_wasm/{poisson{.js,.wasm,_inc.js,.css},favicon.png,libs} poisson/
 	$(RSYNC) $(REPO)/build_wasm/poisson.html poisson/index.html
+	$(RSYNC) $(REPO)/build_wasm/wave{.js,.wasm} wave/
+	$(RSYNC) $(REPO)/build_wasm/wave.html wave/index.html
+	$(RSYNC) $(REPO)/build_wasm/axes_xt.svg wave/
 
 commit:
 	git commit --edit -m "update from devel `cat .gitrev`"
