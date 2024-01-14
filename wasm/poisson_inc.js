@@ -41,7 +41,8 @@ function restart() {
 }
 
 function setButtonStyle(button_name, pressed) {
-  document.getElementById('button_' + button_name).className = pressed ? "button pressed" : "button";
+  document.getElementById('button_' + button_name).className =
+      pressed ? 'button pressed' : 'button';
 }
 
 function syncButtons() {
@@ -172,7 +173,7 @@ function postRun() {
 
   // Disable Space on buttons.
   [
-    window.button_pause, window.button_restart, window.button_i,
+    window.button_pause, window.button_restart,
   ].forEach(b => {
     b.addEventListener('keydown', function(e){
       if (e.key == ' ') {
