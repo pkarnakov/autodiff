@@ -152,7 +152,7 @@ static void RunPoisson(Config config) {
     vars.push_back(&var_uu[i]->value());
     grads.push_back(&uu[i].grad());
   }
-  Adam::Run(adam_config, vars, grads, update_grads, callback);
+  Adam().Run(adam_config, vars, grads, update_grads, callback);
 
   auto* profiler = Profiler::GetInstance();
   for (auto& pair : profiler->GetRecords()) {

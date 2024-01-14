@@ -41,7 +41,7 @@ static void TestAdam() {
   using Adam = optimizer::Adam<Scal>;
   typename Adam::Config config;
   config.epochs = 1000;
-  Adam::Run(config, {&x, &y}, {&grad_x, &grad_y}, update_grads, callback);
+  Adam().Run(config, {&x, &y}, {&grad_x, &grad_y}, update_grads, callback);
 }
 
 int main() {

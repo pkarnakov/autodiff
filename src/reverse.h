@@ -261,6 +261,7 @@ class Tracer {
  public:
   using Extra = E;
 
+  Tracer() = default;
   Tracer(std::shared_ptr<Node<T, E>> node) : node_(node) {}
   Tracer(const Var<T>& var)
       : node_(std::make_shared<NodeVar<T, E>>(var, var.name())) {}
@@ -643,7 +644,7 @@ std::ostream& operator<<(std::ostream& out, const Tracer<T, E>& tracer) {
 // Writes nodes in plain text.
 struct PrintImpl {
   template <class E>
-  static void Print(std::ostream& out, const GenericNode<E>* node) {
+  static void Print(std::ostream& out, const GenericNode<E>*) {
     out << "GenericNode()";
   }
   template <class T, class E>

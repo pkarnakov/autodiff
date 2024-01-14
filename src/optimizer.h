@@ -21,20 +21,37 @@ class Adam {
     Scal beta2 = 0.999;
     Scal epsilon = 1e-7;
   };
-  static void Run(const Config& config, const std::vector<Matrix*>& vars,
-                  const std::vector<const Matrix*>& grads,
-                  std::function<void()> update_grads,
-                  std::function<void(int)> callback) {
-    fassert_equal(vars.size(), grads.size());
+  struct State {
+    int epoch = 0;
     std::vector<Matrix> mm;
     std::vector<Matrix> vv;
-    for (auto* x : vars) {
-      mm.emplace_back(Matrix::zeros_like(*x));
-      vv.emplace_back(Matrix::zeros_like(*x));
+  };
+
+  Adam() = default;
+  void Run(const Config& config, const std::vector<Matrix*>& vars,
+           const std::vector<const Matrix*>& grads,
+           const std::function<void()>& update_grads,
+           const std::function<void(int)>& callback) {
+    fassert_equal(vars.size(), grads.size());
+    auto& mm = state_.mm;
+    auto& vv = state_.vv;
+    // Initialize mm and vv on first call.
+    if (mm.empty() && vv.empty()) {
+      for (auto* x : vars) {
+        mm.emplace_back(Matrix::zeros_like(*x));
+        vv.emplace_back(Matrix::zeros_like(*x));
+      }
+    } else {
+      fassert_equal(mm.size(), vars.size());
+      fassert_equal(vv.size(), vars.size());
     }
 
-    callback(0);
-    for (int epoch = 1; epoch <= config.epochs; ++epoch) {
+    const int epoch_start = state_.epoch;
+    if (epoch_start == 0) {
+      callback(epoch_start);
+    }
+    for (int epoch = epoch_start + 1; epoch <= epoch_start + config.epochs;
+         ++epoch) {
       update_grads();
       using std::pow;
       using std::sqrt;
@@ -52,7 +69,14 @@ class Adam {
       }
       callback(epoch);
     }
+    state_.epoch = epoch_start + config.epochs;
   }
+  State& state() {
+    return state_;
+  }
+
+ private:
+  State state_;
 };
 
 }  // namespace optimizer

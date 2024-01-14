@@ -28,6 +28,7 @@ class Matrix {
 
   // Constructor.
   Matrix() : nrow_(0), ncol_(0) {}
+  Matrix(const Matrix&) = default;
   explicit Matrix(size_t n) : Matrix(n, n) {}
   Matrix(size_t nrow, size_t ncol)
       : nrow_(nrow), ncol_(ncol), data_(nrow * ncol) {}
