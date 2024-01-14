@@ -6,10 +6,6 @@
 git clone https://github.com/pkarnakov/autodiff.git
 ```
 
-## Pages
-
-<https://pkarnakov.github.io/autodiff>
-
 ## Requirements
 
 * C++17 compiler
@@ -20,6 +16,22 @@ git clone https://github.com/pkarnakov/autodiff.git
 ```
 make
 ```
+
+## Interactive demos
+
+These demos run interactively in the web browser through [Emscripten](https://emscripten.org).
+They solve problems for partial differential equations using the [ODIL](https://github.com/cselab/odil) framework.
+
+| [<img src="https://cselab.github.io/odil/media/wasm_poisson.png" width=120>](https://pkarnakov.github.io/autodiff/poisson) |
+|:---:|
+| [Poisson](https://pkarnakov.github.io/autodiff/poisson) |
+
+To build them from [source](wasm/) and run in a local web server do
+```
+make build_wasm
+make serve
+```
+
 
 ## Applications
 
@@ -59,4 +71,8 @@ make run_poisson
 :---:|:--:|:---:
 <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/poisson.svg" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/u_00010.png" height="200px"> | <img src="https://pkarnakov.github.io/autodiff/media/poisson_mg/uref.png" height="200px">
 
+
+## Pages
+
+<https://pkarnakov.github.io/autodiff>
 
