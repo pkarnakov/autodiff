@@ -103,13 +103,16 @@ if (BUILD_WASM)
   add_executable(${T} src/poisson_wasm.cpp)
   target_link_options(${T} PRIVATE "-sEXPORTED_FUNCTIONS=[\
     '_main', '_malloc' \
-    , '_GetParticles' \
+    , '_GetParticles', '_GetBitmapWidth', '_GetBitmapHeight' \
     , '_SendKeyDown', '_SendMouseMotion', '_SendMouseDown', '_SendMouseUp' \
     , '_Init', '_SetPause', '_GetMouseMode' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
   target_compile_options(${T} PRIVATE -fexceptions)
   target_link_options(${T} PRIVATE -fexceptions)
+  # Suppress spurious warnings.
+  target_compile_options(${T} PRIVATE -Wno-dollar-in-identifier-extension)
+  target_compile_options(${T} PRIVATE -Wno-gnu-zero-variadic-macro-arguments)
   set_target_properties(${T} PROPERTIES OUTPUT_NAME poisson)
   configure_file(src/poisson.html poisson.html COPYONLY)
   configure_file(src/poisson.css poisson.css COPYONLY)

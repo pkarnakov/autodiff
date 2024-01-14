@@ -25,7 +25,7 @@ var SendMouseMotion;
 var SendMouseDown;
 var SendMouseUp;
 
-// Misc
+// Misc.
 var SetPause;
 var flag_pause = false;
 var GetMouseMode;
@@ -37,8 +37,8 @@ function draw() {
   ctx.drawImage(g_tmp_canvas, 0, 0, canvas.width, canvas.height);
 
   // Clear the canvas.
-  ctx.fillStyle = c_background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  //ctx.fillStyle = c_background;
+  //ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   { // Draw particles.
     g_particles = new Uint16Array(Module.HEAPU8.buffer, g_particles_ptr, g_particles_max_size);
@@ -123,14 +123,16 @@ function postRun() {
   SendMouseUp = Module.cwrap('SendMouseUp', null, ['number', 'number']);
   SetPause = Module.cwrap('SetPause', null, ['number']);
   GetMouseMode = Module.cwrap('GetMouseMode', 'string', []);
+  GetBitmapWidth = Module.cwrap('GetBitmapWidth', 'number', []);
+  GetBitmapHeight = Module.cwrap('GetBitmapHeight', 'number', []);
   Init = Module.cwrap('Init', null, []);
 
   g_particles_ptr = Module._malloc(g_particles_max_size * 2);
 
   let canvas = Module['canvas'];
   g_tmp_canvas = document.createElement('canvas');
-  g_tmp_canvas.width = canvas.width;
-  g_tmp_canvas.height = canvas.height;
+  g_tmp_canvas.width = GetBitmapWidth();
+  g_tmp_canvas.height = GetBitmapHeight();
 
   let handler_keydown = function(e) {
     if (e.key == ' ') {

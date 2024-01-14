@@ -28,33 +28,39 @@ using Adam = optimizer::Adam<Scal>;
 struct Scene {
   int width = 800;
   int height = 800;
-  int Nx = 64;
-  int epochs_per_frame = 100;
+  int Nx = 128;
+  int epochs_per_frame = 25;
   int max_nlvl = 4;
-  double lr = 1e-3;
-  double uref_k = 2;
+  Scal lr = 1e-3;
+  Scal uref_k = 2;
+  std::array<Scal, 2> ulim = {-1, 1};
 
+  // Control flags.
   bool is_pause = false;
 
+  // Solver state.
   Matrix<Scal> uref;  // Reference solution.
   Matrix<Scal> rhs;   // Right-hand side.
-  std::vector<std::unique_ptr<Var<M>>> var_uu;
-  std::vector<Tracer<M, Extra>> uu;  // Multigrid components.
+  std::vector<std::unique_ptr<Var<M>>> var_uu;  // Multigrid components.
+  std::vector<Tracer<M, Extra>> uu;  // Tracers of multigrid components.
   Tracer<M, Extra> u;                // Sum of multigrid components.
   NodeOrder<Extra> order;
-  std::function<void(int)> callback;
-  std::function<void()> update_grads;
   Tracer<Scal, Extra> loss;
 
   // Optimizer.
   std::unique_ptr<Adam> optimizer;
   typename Adam::Config opt_config;
+  std::function<void(int)> callback;
+  std::function<void()> update_grads;
   std::vector<M*> opt_vars;
   std::vector<const M*> opt_grads;
-
-  std::vector<Vect> particles;
-
   std::chrono::time_point<Clock> time_prev;
+
+  // Data buffers.
+  std::vector<Vect> particles;
+  std::vector<uint32_t> bitmap;
+
+  // Visualization.
 };
 
 std::shared_ptr<Scene> g_scene;
@@ -132,7 +138,7 @@ static void InitScene(Scene& scene) {
       scene.time_prev = time_curr;
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
-      const double throughput =
+      const Scal throughput =
           (ms > 0 ? 1e-3 * scene.rhs.size() * scene.epochs_per_frame / ms : 0);
       printf(
           "epoch=%5d, loss=%8.6e, throughput=%.3fM cells/s, u:[%.3f,%.3f], \n",
@@ -149,6 +155,18 @@ static void InitScene(Scene& scene) {
     scene.opt_grads.push_back(&uu[i].grad());
   }
   scene.optimizer = std::make_unique<Adam>();
+}
+
+void CopyToCanvas(uint32_t* buf, int w, int h) {
+  EM_ASM_(
+      {
+        let data = Module.HEAPU8.slice($0, $0 + $1 * $2 * 4);
+        let tctx = g_tmp_canvas.getContext("2d");
+        let image = tctx.getImageData(0, 0, $1, $2);
+        image.data.set(data);
+        tctx.putImageData(image, 0, 0);
+      },
+      buf, w, h);
 }
 
 void UpdateScene() {
@@ -170,6 +188,28 @@ void UpdateScene() {
       p[1] -= 1;
     }
   }
+  const auto& u = scene.u.value();
+  scene.bitmap.resize(u.size());
+  const auto& ulim = scene.ulim;
+  const Scal c0[] = {0.85, 0.5, 0.07};
+  const Scal c1[] = {0.97, 0.97, 0.97};
+  const Scal c2[] = {0.34, 0.17, 0.54};
+  auto linear = [&](Scal x, Scal x0, Scal x1, Scal u0, Scal u1) {
+    return ((x1 - x) * u0 + (x - x0) * u1) / (x1 - x0);
+  };
+  auto color = [&](Scal v, int k) -> uint8_t {
+    return 255 * (v < 0.5 ? linear(v, 0, 0.5, c0[k], c1[k])
+                          : linear(v, 0.5, 1, c1[k], c2[k]));
+  };
+  for (size_t i = 0; i < u.size(); ++i) {
+    const Scal v = std::max<Scal>(
+        0, std::min<Scal>(1, (u[i] - ulim[0]) / (ulim[1] - ulim[0])));
+    const uint8_t r = color(v, 0);
+    const uint8_t g = color(v, 1);
+    const uint8_t b = color(v, 2);
+    scene.bitmap[i] = (0xff << 24) | (b << 16) | (g << 8) | r;
+  }
+  CopyToCanvas(scene.bitmap.data(), u.ncol(), u.nrow());
 }
 
 extern "C" {
@@ -190,6 +230,13 @@ int GetParticles(uint16_t* data, int max_size) {
 }
 void SendKeyDown(char keysym) {
   (void)keysym;
+}
+int GetBitmapWidth() {
+  return g_scene->Nx;
+}
+
+int GetBitmapHeight() {
+  return g_scene->Nx;
 }
 
 void SendMouseMotion(Scal x, Scal y) {
@@ -225,8 +272,7 @@ const char* GetMouseMode() {
 
 static void main_loop() {
   UpdateScene();
-  // NULL added to suppress warning -Wgnu-zero-variadic-macro-arguments.
-  EM_ASM({ draw(); }, NULL);
+  EM_ASM({ draw(); });
 }
 
 int main() {
