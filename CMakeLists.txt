@@ -165,5 +165,6 @@ if (BUILD_WASM)
   configure_file(wasm/view.css view.css COPYONLY)
   configure_file(wasm/view.js view.js COPYONLY)
   configure_file(wasm/assets/axes_xt.svg axes_xt.svg COPYONLY)
+  configure_file(wasm/libs/buttons.js libs/buttons.js COPYONLY)
 endif()
 
