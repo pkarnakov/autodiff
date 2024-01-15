@@ -16,8 +16,10 @@ void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
   const float C1[] = {0.97, 0.97, 0.97};  // White.
   const float C2[] = {0.85, 0.5, 0.07};   // Orange.
   const float C3[] = {0, 0.95, 0.6};      // Green.
-  fassert_equal(u.nrow(), mask.nrow());
-  fassert_equal(u.ncol(), mask.ncol());
+  const size_t nx = u.nrow();
+  const size_t ny = u.ncol();
+  fassert_equal(mask.nrow(), nx);
+  fassert_equal(mask.ncol(), ny);
   bitmap.resize(u.size());
   auto linear = [](float x, float x0, float x1, float u0, float u1) {
     return ((x1 - x) * u0 + (x - x0) * u1) / (x1 - x0);
@@ -32,14 +34,14 @@ void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
   auto round = [](float c) -> uint8_t {
     return Clip<float>(c * 255 + 0.5, 0, 255);
   };
-  for (size_t i = 0; i < u.nrow(); ++i) {
-    for (size_t j = 0; j < u.ncol(); ++j) {
-      const float vu = Clip<float>(u(i, j), 0, 1);
-      const float vmask = Clip<float>(mask(i, j), 0, 1);
+  for (size_t ix = 0; ix < nx; ++ix) {
+    for (size_t iy = 0; iy < ny; ++iy) {
+      const float vu = Clip<float>(u(ix, iy), 0, 1);
+      const float vmask = Clip<float>(mask(ix, iy), 0, 1);
       const uint8_t r = round(blend(color(vu, 0), C3[0], vmask * 0.5));
       const uint8_t g = round(blend(color(vu, 1), C3[1], vmask * 0.5));
       const uint8_t b = round(blend(color(vu, 2), C3[2], vmask * 0.5));
-      bitmap[j * u.ncol() + i] = (0xff << 24) | (b << 16) | (g << 8) | r;
+      bitmap[(ny - iy - 1) * nx + ix] = (0xFF << 24) | (b << 16) | (g << 8) | r;
     }
   }
 }
@@ -64,20 +66,22 @@ void CopyToCanvas(uint32_t* buffer, int width, int height) {
 // r: radius of circle in cells.
 template <class Scal>
 void DrawCircleOnMask(Matrix<Scal>& mask, float x, float y, float r) {
-  const int ic = FractionToIndex(x, 0, mask.nrow() - 1);
-  const int jc = FractionToIndex(1 - y, 0, mask.ncol() - 1);
+  const size_t nx = mask.nrow();
+  const size_t ny = mask.ncol();
+  const int ixc = FractionToIndex(x, 0, nx - 1);
+  const int iyc = FractionToIndex(y, 0, ny - 1);
   const int w = std::ceil(r);
   auto kernel = [r](int dx, int dy) -> Scal {  //
     return Clip<Scal>(3 * (1 - std::sqrt(sqr(dx) + sqr(dy)) / r), 0, 1);
   };
-  const int i0 = Clip<int>(ic - w, 0, mask.nrow());
-  const int i1 = Clip<int>(ic + w + 1, 0, mask.nrow());
-  const int j0 = Clip<int>(jc - w, 0, mask.ncol());
-  const int j1 = Clip<int>(jc + w + 1, 0, mask.ncol());
-  for (int i = i0; i < i1; ++i) {
-    for (int j = j0; j < j1; ++j) {
-      const Scal a = kernel(i - ic, j - jc);
-      mask(i, j) = Clip<Scal>(a + mask(i, j) * (1 - a), 0, 1);
+  const int ix0 = Clip<int>(ixc - w, 0, nx);
+  const int ix1 = Clip<int>(ixc + w + 1, 0, nx);
+  const int jx0 = Clip<int>(iyc - w, 0, ny);
+  const int jx1 = Clip<int>(iyc + w + 1, 0, ny);
+  for (int ix = ix0; ix < ix1; ++ix) {
+    for (int iy = jx0; iy < jx1; ++iy) {
+      const Scal a = kernel(ix - ixc, iy - iyc);
+      mask(ix, iy) = Clip<Scal>(a + mask(ix, iy) * (1 - a), 0, 1);
     }
   }
 }

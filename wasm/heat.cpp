@@ -29,15 +29,16 @@ using Adam = optimizer::Adam<Scal>;
 
 struct Scene {
   int Nx = 128;
+  std::array<Scal, 2> xlim = {-1, 1};
+  std::array<Scal, 2> tlim = {0, 1};
+  Scal conductivity = 0.04;
   int epochs_per_frame = 20;
   int max_nlvl = 4;
   Scal lr = 0.005;
-  Scal osc_k = 2;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
   // Solver state.
   M u_ref;                                      // Reference solution.
-  M rhs;                                        // Right-hand side.
   std::vector<std::unique_ptr<Var<M>>> var_uu;  // Multigrid components.
   std::vector<Tracer<M, Extra>> uu;  // Tracers of multigrid components.
   Tracer<M, Extra> u;                // Sum of multigrid components.
@@ -70,48 +71,70 @@ std::shared_ptr<Scene> g_scene;
 
 static void InitScene(Scene& scene) {
   const size_t Nx = scene.Nx;
-  const Scal hx = 1. / Nx;
+  const size_t Nt = Nx;
+  const auto& xlim = scene.xlim;
+  const auto& tlim = scene.tlim;
+  const Scal hx = (xlim[1] - xlim[0]) / Nx;
+  const Scal ht = (tlim[1] - tlim[0]) / Nt;
 
   {  // Reference solution.
     auto u_ref = M::zeros(Nx);
-    for (size_t i = 0; i < Nx; ++i) {
-      for (size_t j = 0; j < Nx; ++j) {
-        using std::sin;
-        const Scal x = (i + 0.5) / Nx;
-        const Scal y = (j + 0.5) / Nx;
+    const Scal kd = scene.conductivity;
+    for (size_t ix = 0; ix < Nx; ++ix) {
+      for (size_t it = 0; it < Nt; ++it) {
+        using std::cos;
+        using std::exp;
+        const Scal x = xlim[0] + (ix + 0.5) * hx;
+        const Scal t = tlim[0] + (it + 0.5) * ht;
         const Scal pi = M_PI;
-
-        const Scal k = scene.osc_k;
-        u_ref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
+        Scal u = 0;
+        const int n = 5;
+        for (int k = 1; k <= n; ++k) {
+          const Scal w = k * pi;
+          u += cos((x + 0.5) * w) * exp(-kd * sqr(w) * t);
+          u += cos((x - 0.5) * w) * exp(-kd * sqr(w) * t);
+        }
+        u_ref(ix, it) = u / n;
       }
     }
     scene.u_ref = u_ref;
   }
 
   auto inner = M::zeros(Nx);
-  for (size_t i = 1; i + 1 < Nx; ++i) {
-    for (size_t j = 1; j + 1 < Nx; ++j) {
-      inner(i, j) = 1;
+  // Exclude both edges in x and lower edge in t.
+  for (size_t ix = 1; ix + 1 < Nx; ++ix) {
+    for (size_t it = 1; it < Nt; ++it) {
+      inner(ix, it) = 1;
     }
   }
 
   auto transform_u = [inner](auto& u) {  //
-    return u * inner;
+    return u;
   };
   scene.transform_u = transform_u;
 
-  // Evaluates laplacian with zero Dirichlet conditions.
-  auto eval_lapl = [hx, &transform_u](auto& u) {  //
-    const Scal hxx = sqr(hx);
-    const Scal a = -4 / hxx;
-    const Scal b = 1 / hxx;
-    return conv(transform_u(u), a, b, b, b, b);
+  // Evaluates the discrete operator.
+  auto operator_wave = [hx, ht, kd = scene.conductivity,
+                        &transform_u](auto& u) {
+    const Scal kx = kd / sqr(hx);
+    // Crank-Nicolson scheme.
+    // tp:  ( 0    0    0 )             ( 0     0  0   )
+    // tc:  ( 0   1/ht  0 )  =  1/hxx * ( 1/2  -1  1/2 )
+    // tm:  ( 0  -1/ht  0 )             ( 1/2  -1  1/2 )
+    const std::array<Scal, 3> w_tp{0, 0, 0};
+    const std::array<Scal, 3> w_tc{-kx / 2, 1 / ht + kx, -kx / 2};
+    const std::array<Scal, 3> w_tm{-kx / 2, -1 / ht + kx, -kx / 2};
+    const std::array<Scal, 9> w{
+        w_tm[0], w_tc[0], w_tp[0],  //
+        w_tm[1], w_tc[1], w_tp[1],  //
+        w_tm[2], w_tc[2], w_tp[2],
+    };
+    return conv(transform_u(u), w);
   };
 
   // Initial guess.
   auto u_init = M::zeros(Nx);
 
-  scene.rhs = eval_lapl(scene.u_ref);
   auto& var_uu = scene.var_uu;
   auto& uu = scene.uu;
   {  // Create variables for multigrid levels starting from the finest.
@@ -138,8 +161,8 @@ static void InitScene(Scene& scene) {
   scene.mask = Tracer<M, Extra>(*scene.var_mask);
 
   // Compute loss.
-  scene.loss = mean(sqr(eval_lapl(scene.u) - scene.rhs)) +
-               mean(sqr(scene.u * scene.mask / sqr(hx)));
+  scene.loss = mean(sqr(operator_wave(scene.u) * inner)) +
+               mean(sqr((scene.u - scene.u_ref) * scene.mask / sqr(hx)));
 
   scene.time_prev = Clock::now();
   scene.callback = [&scene](int epoch) {
@@ -149,14 +172,14 @@ static void InitScene(Scene& scene) {
       scene.time_prev = time_curr;
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
+      const auto& u = scene.u.value();
       const Scal throughput =
-          (ms > 0 ? 1e-3 * scene.rhs.size() * scene.epochs_per_frame / ms : 0);
+          (ms > 0 ? 1e-3 * u.size() * scene.epochs_per_frame / ms : 0);
       auto print = [&](char* buf, size_t bufsize) -> int {
         return std::snprintf(
             buf, bufsize,
             "epoch=%5d, loss=%.4e<br>throughput=%.3fM cells/s, u:[%.3f,%.3f]",
-            epoch, std::sqrt(scene.loss.value()), throughput,
-            scene.u.value().min(), scene.u.value().max());
+            epoch, std::sqrt(scene.loss.value()), throughput, u.min(), u.max());
       };
       auto& s = scene.status_string;
       s.resize(print(nullptr, 0) + 1);

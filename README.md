@@ -22,9 +22,9 @@ make
 These demos run interactively in the web browser through [Emscripten](https://emscripten.org).
 They solve problems for partial differential equations using [ODIL](https://github.com/cselab/odil).
 
-| [<img src="https://cselab.github.io/odil/media/wasm_poisson.png" height=120>](https://pkarnakov.github.io/autodiff/poisson) | [<img src="https://cselab.github.io/odil/media/wasm_wave.png" width=120>](https://pkarnakov.github.io/autodiff/wave) |
-|:---:|:---:|
-| [Poisson](https://pkarnakov.github.io/autodiff/poisson) | [Wave](https://pkarnakov.github.io/autodiff/wave) |
+| [<img src="https://cselab.github.io/odil/media/wasm_poisson.png" width=120>](https://pkarnakov.github.io/autodiff/demos/poisson.html) | [<img src="https://cselab.github.io/odil/media/wasm_wave.png" width=120>](https://pkarnakov.github.io/autodiff/demos/wave.html) | [<img src="https://cselab.github.io/odil/media/wasm_heat.png" width=120>](https://pkarnakov.github.io/autodiff/demos/heat.html) |
+|:---:|:---:|:---:|
+| [Poisson](https://pkarnakov.github.io/autodiff/demos/poisson.html) | [Wave](https://pkarnakov.github.io/autodiff/demos/wave.html) | [Heat](https://pkarnakov.github.io/autodiff/demos/heat.html) |
 
 To build them from [source](wasm/) and run in a local web server do
 ```
