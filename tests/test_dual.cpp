@@ -66,7 +66,7 @@ static void TestDual() {
   PE(f_if(a, b));
   PE(abs(b));
   const auto prec = std::cout.precision();
-  std::cout.precision(16);
+  std::cout.precision(14);
   PE(sin(SeedDual(1.23)));
   PE(approx_sin(SeedDual(1.23)));
   std::cout.precision(prec);

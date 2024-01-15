@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <iosfwd>
 #include <map>
@@ -463,7 +464,16 @@ Tracer<Matrix<T>, E> conv(const Tracer<Matrix<T>, E>& tr_x, const A& a,
       [a, axm, axp, aym, ayp](const Matrix<T>&, const Matrix<T>& du) {
         return du.conv(a, axp, axm, ayp, aym);
       },
-      "conv")};
+      "conv5")};
+}
+
+template <class T, class A, class E>
+Tracer<Matrix<T>, E> conv(const Tracer<Matrix<T>, E>& tr_x,
+                          const std::array<A, 9>& a) {
+  return {std::make_shared<NodeUnary<Matrix<T>, Matrix<T>, E>>(
+      tr_x.node(), [a](const Matrix<T>& x) { return x.conv(a); },
+      [a](const Matrix<T>&, const Matrix<T>& du) { return du.conv_adjoint(a); },
+      "conv9")};
 }
 
 template <class T, class E>

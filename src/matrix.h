@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iomanip>
 #include <iosfwd>
@@ -396,6 +397,38 @@ class Matrix {
     }
     return res;
   }
+  // Computes a 3x3 convolution.
+  // w: convolution weights ordered as:
+  //   (-1, -1), (-1, 0), (-1, 1), (0, -1), ..., (1, 1)
+  Matrix conv(const std::array<T, 9>& w) const {
+    Matrix res(nrow_, ncol_);
+    const int nx = nrow_;
+    const int ny = ncol_;
+    auto& u = *this;
+    for (int ix = 0; ix < nx; ++ix) {
+      for (int iy = 0; iy < ny; ++iy) {
+        T s{};
+        using std::min;
+        for (int dx = -1; dx < 2; ++dx) {
+          for (int dy = -1; dy < 2; ++dy) {
+            const int tx = ix + dx;
+            const int ty = iy + dy;
+            const int qx = (tx == -1 ? nx - 1 : tx == nx ? 0 : tx);
+            const int qy = (ty == -1 ? ny - 1 : ty == ny ? 0 : ty);
+            s += w[(dx + 1) * 3 + dy + 1] * u(qx, qy);
+          }
+        }
+        res(ix, iy) = s;
+      }
+    }
+    return res;
+  }
+  Matrix conv_adjoint(const std::array<T, 9>& w) const {
+    // 0 1 2             8 7 6
+    // 3 4 5   flip ->   5 4 3
+    // 6 7 8             2 1 0
+    return conv({w[8], w[7], w[6], w[5], w[4], w[3], w[2], w[1], w[0]});
+  }
 
   // Reduction.
   T sum() const {
@@ -554,6 +587,10 @@ class Matrix {
   friend Matrix conv(const Matrix& matr, const U& a, const U& axm, const U& axp,
                      const U& aym, const U& ayp) {
     return matr.conv(a, axm, axp, aym, ayp);
+  }
+  template <class U>
+  friend Matrix conv(const Matrix& matr, const std::array<U, 9>& a) {
+    return matr.conv(a);
   }
 
   // Static functions.

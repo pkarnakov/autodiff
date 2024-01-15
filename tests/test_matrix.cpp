@@ -73,6 +73,12 @@ static void TestConv() {
   PE(rms(u.conv(0, 0, 0, 1, 0) - u.roll(0, 1)));
   PE(rms(u.conv(0, 0, 0, 0, 1) - u.roll(0, -1)));
   PEN(Str(u.conv(-4, 1, 1, 1, 1)));
+  using W = std::array<T, 9>;
+  PE(rms(u.conv(W{0, 0, 0, 0, 1, 0, 0, 0, 0}) - u));
+  PE(rms(u.conv(W{1, 0, 0, 0, 0, 0, 0, 0, 0}) - u.roll(1, 1)));
+  PE(rms(u.conv(W{0, 0, 1, 0, 0, 0, 0, 0, 0}) - u.roll(1, -1)));
+  PE(rms(u.conv(W{0, 0, 0, 0, 0, 0, 1, 0, 0}) - u.roll(-1, 1)));
+  PE(rms(u.conv(W{0, 0, 0, 0, 0, 0, 0, 0, 1}) - u.roll(-1, -1)));
 }
 
 int main() {
