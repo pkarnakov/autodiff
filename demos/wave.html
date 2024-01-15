@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ODIL Wave</title>
+    <link rel="stylesheet" href="view.css" />
+  </head>
+  <body>
+    <noscript>
+      <div>
+        This demo needs JavaScript.
+      </div>
+    </noscript>
+
+    <div id="content_column">
+      <div class="row">
+        source: <a href="https://github.com/pkarnakov/autodiff">autodiff</a>
+        + <a href="https://github.com/cselab/odil">ODIL</a>
+        |
+        <a href="poisson.html" class="demo">Poisson</a>
+        <a href="wave.html" class="demo current">Wave</a>
+        <a href="heat.html" class="demo">Heat</a>
+      </div>
+      <div class="row">
+        <canvas id="canvas" tabindex=-1></canvas>
+      </div>
+      <div class="row" style="position: relative;">
+        <input type="button" title="space" class="button" id="button_pause" value="pause" onclick="togglePause();">
+        <input type="button" title='r' class="button" id="button_restart" value="restart" onclick="pressButton('r')">
+        <img src="axes_xt.svg" class="axes" />
+      </div>
+      <div class="row">
+        <span class="kbdspan"><kbd>click</kbd> draw mask (imposes exact solution),</span>
+        <span class="kbdspan"><kbd>space</kbd> toggle pause,</span>
+        <span class="kbdspan"><kbd>r</kbd> restart</span>
+      </div>
+      <div class="row" id="text_status"></div>
+      <div class="row">
+        Equation without initial or boundary conditions.<br>
+        Draw a mask to impose the exact solution.
+      </div>
+    </div>
+
+    <script src="view.js"></script>
+    <script async src="wave.js"></script>
+  </body>
+</html>

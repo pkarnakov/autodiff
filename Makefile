@@ -1,6 +1,6 @@
 PANDOC = pandoc
 STYLE = .
-REPO = ..
+MAINREPO = ..
 RSYNC = rsync -a -i --update
 
 all: \
@@ -9,20 +9,16 @@ all: \
 .md.html:
 	$(PANDOC) -s --css $(STYLE)/pandoc.css "$<" -o "$@"
 
-wasm:
-	(cd "$(REPO)" && git rev-parse --short HEAD) > .gitrev
-	$(RSYNC) $(REPO)/build_wasm/{poisson{.js,.wasm,_inc.js,.css},favicon.png,libs} poisson/
-	$(RSYNC) $(REPO)/build_wasm/poisson.html poisson/index.html
-	$(RSYNC) $(REPO)/build_wasm/{wave{.js,.wasm},favicon.png,libs} wave/
-	$(RSYNC) $(REPO)/build_wasm/poisson{_inc.js,.css} wave/
-	$(RSYNC) $(REPO)/build_wasm/wave.html wave/index.html
-	$(RSYNC) $(REPO)/build_wasm/axes_xt.svg wave/
+demos:
+	mkdir -p "$@"
+	git -C $(MAINREPO) rev-parse --short HEAD > $@/.gitrev
+	$(RSYNC) $(MAINREPO)/build_wasm/{*.js,*.css,*.wasm,*.html,*.svg,favicon.png} $@/
 
-commit:
-	git commit --edit -m "update from devel `cat .gitrev`"
+demos_commit:
+	git commit --edit -m "update demos from $$(cat demos/.gitrev)"
 
 clean:
 	rm -vf *.pdf *.html
 
-.PHONY: all clean
+.PHONY: all clean demos demos_commit
 .SUFFIXES: .md .html
