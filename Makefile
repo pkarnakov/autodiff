@@ -12,7 +12,7 @@ all: \
 demos:
 	mkdir -p "$@"
 	git -C $(MAINREPO) rev-parse --short HEAD > $@/.gitrev
-	$(RSYNC) $(MAINREPO)/build_wasm/{*.js,*.css,*.wasm,*.html,*.svg,favicon.png} $@/
+	$(RSYNC) $(MAINREPO)/build_wasm/{*.js,*.css,*.wasm,*.html,*.svg,favicon.png,libs} $@/
 
 demos_commit:
 	git commit --edit -m "update demos from $$(cat demos/.gitrev)"
