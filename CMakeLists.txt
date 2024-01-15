@@ -132,8 +132,6 @@ if (BUILD_WASM)
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
   configure_file(wasm/poisson.html poisson.html COPYONLY)
-  configure_file(wasm/poisson.css poisson.css COPYONLY)
-  configure_file(wasm/poisson_inc.js poisson_inc.js COPYONLY)
 
   # Wave.
   set(T wave)
@@ -147,10 +145,11 @@ if (BUILD_WASM)
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
   configure_file(wasm/wave.html wave.html COPYONLY)
-  configure_file(wasm/assets/axes_xt.svg axes_xt.svg COPYONLY)
 
   # Common.
   configure_file(wasm/favicon.png favicon.png COPYONLY)
-  configure_file(wasm/libs/github_buttons.js libs/github_buttons.js COPYONLY)
+  configure_file(wasm/view.css view.css COPYONLY)
+  configure_file(wasm/view.js view.js COPYONLY)
+  configure_file(wasm/assets/axes_xt.svg axes_xt.svg COPYONLY)
 endif()
 

@@ -6,7 +6,7 @@
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ODIL Poisson</title>
-    <link rel="stylesheet" href="poisson.css" />
+    <link rel="stylesheet" href="view.css" />
   </head>
   <body>
     <noscript>
@@ -17,8 +17,12 @@
 
     <div id="content_column">
       <div class="row">
-        <a class="github-button" href="https://github.com/pkarnakov/autodiff" data-size="large" data-show-count="true" aria-label="Star on GitHub">Star</a>
-        <a href="https://github.com/pkarnakov/autodiff" style="position:relative; bottom:0.6em;">github.com/pkarnakov/autodiff</a>
+        source: <a href="https://github.com/pkarnakov/autodiff">autodiff</a>
+        + <a href="https://github.com/cselab/odil">ODIL</a>
+        |
+        <a href="poisson.html" class="demo current">Poisson</a>
+        <a href="wave.html" class="demo">Wave</a>
+        <a href="heat.html" class="demo">Heat</a>
       </div>
       <div class="row">
         <canvas id="canvas" tabindex=-1></canvas>
@@ -35,8 +39,7 @@
       <div class="row" id="text_status"></div>
     </div>
 
-    <script async defer src="libs/github_buttons.js"></script>
-    <script src="poisson_inc.js"></script>
+    <script src="view.js"></script>
     <script async src="poisson.js"></script>
   </body>
 </html>
