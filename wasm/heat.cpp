@@ -38,15 +38,12 @@ struct Scene {
   std::array<Scal, 2> ulim = {-0.25, 0.25};
 
   // Solver state.
-  M u_ref;                                      // Reference solution.
-  std::vector<std::unique_ptr<Var<M>>> var_uu;  // Multigrid components.
-  std::vector<Tracer<M, Extra>> uu;  // Tracers of multigrid components.
-  Tracer<M, Extra> u;                // Sum of multigrid components.
+  std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;  // Solution.
+  M u_ref;                                          // Reference solution.
   NodeOrder<Extra> order;
   Tracer<Scal, Extra> loss;
   std::unique_ptr<Var<M>> var_mask;
   Tracer<M, Extra> mask;
-  std::function<M(const M&)> transform_u;
 
   // Optimizer.
   std::unique_ptr<Adam> optimizer;
@@ -108,14 +105,8 @@ static void InitScene(Scene& scene) {
     }
   }
 
-  auto transform_u = [inner](auto& u) {  //
-    return u;
-  };
-  scene.transform_u = transform_u;
-
   // Evaluates the discrete operator.
-  auto operator_wave = [hx, ht, kd = scene.conductivity,
-                        &transform_u](auto& u) {
+  auto operator_heat = [hx, ht, kd = scene.conductivity](auto& u) {
     const Scal kx = kd / sqr(hx);
     // Crank-Nicolson scheme.
     // tp:  ( 0    0    0 )             ( 0     0  0   )
@@ -129,40 +120,25 @@ static void InitScene(Scene& scene) {
         w_tm[1], w_tc[1], w_tp[1],  //
         w_tm[2], w_tc[2], w_tp[2],
     };
-    return conv(transform_u(u), w);
+    return conv(u, w);
   };
 
   // Initial guess.
   auto u_init = M::zeros(Nx);
-
-  auto& var_uu = scene.var_uu;
-  auto& uu = scene.uu;
-  {  // Create variables for multigrid levels starting from the finest.
-    int nx = Nx;
-    for (int i = 0; i < scene.max_nlvl; ++i) {
-      const auto name = "u" + std::to_string(i + 1);
-      const auto value = (i == 0 ? u_init : M::zeros(nx));
-      var_uu.emplace_back(std::make_unique<Var<M>>(value, name));
-      uu.emplace_back(*var_uu.back());
-      nx /= 2;
-      if (nx <= 4) {
-        break;
-      }
-    }
-    auto u = uu.back();
-    for (size_t i = uu.size() - 1; i > 0;) {
-      --i;
-      u = interpolate(u) + uu[i];
-    }
-    scene.u = u;
-  }
+  // Create variable for solution.
+  scene.mg_u =
+      std::make_unique<MultigridVar<Scal, Extra>>(u_init, scene.max_nlvl, "u");
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<M>>(M::zeros(Nx), "mask");
   scene.mask = Tracer<M, Extra>(*scene.var_mask);
 
-  // Compute loss.
-  scene.loss = mean(sqr(operator_wave(scene.u) * inner)) +
-               mean(sqr((scene.u - scene.u_ref) * scene.mask / sqr(hx)));
+  {  // Compute loss.
+    auto& u = scene.mg_u->tracer();
+    auto& mask = scene.mask;
+    auto& u_ref = scene.u_ref;
+    scene.loss = mean(sqr(operator_heat(u) * inner)) +
+                 mean(sqr((u - u_ref) * mask / sqr(hx)));
+  }
 
   scene.time_prev = Clock::now();
   scene.callback = [&scene](int epoch) {
@@ -172,7 +148,7 @@ static void InitScene(Scene& scene) {
       scene.time_prev = time_curr;
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
-      const auto& u = scene.u.value();
+      const auto& u = scene.mg_u->tracer().value();
       const Scal throughput =
           (ms > 0 ? 1e-3 * u.size() * scene.epochs_per_frame / ms : 0);
       auto print = [&](char* buf, size_t bufsize) -> int {
@@ -193,10 +169,8 @@ static void InitScene(Scene& scene) {
   };
   scene.opt_config.epochs = scene.epochs_per_frame;
   scene.opt_config.lr = scene.lr;
-  for (size_t i = 0; i < var_uu.size(); ++i) {
-    scene.opt_vars.push_back(&var_uu[i]->value());
-    scene.opt_grads.push_back(&uu[i].grad());
-  }
+  scene.mg_u->AppendValues(scene.opt_vars);
+  scene.mg_u->AppendGrads(scene.opt_grads);
   scene.optimizer = std::make_unique<Adam>();
 }
 
@@ -207,7 +181,7 @@ static void AdvanceScene() {
   }
   scene.optimizer->Run(scene.opt_config, scene.opt_vars, scene.opt_grads,
                        scene.update_grads, scene.callback);
-  const auto& u = scene.transform_u(scene.u.value());
+  const auto& u = scene.mg_u->tracer().value();
   const Matrix<float> unorm =
       (u - scene.ulim[0]) / (scene.ulim[1] - scene.ulim[0]);
   DrawFieldsOnBitmap(unorm, scene.mask.value(), scene.bitmap);

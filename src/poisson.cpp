@@ -48,7 +48,7 @@ static void RunPoisson(Config config) {
   const Scal hx = 1. / Nx;
 
   // Reference solution.
-  auto uref = Matrix<Scal>::zeros(Nx);
+  auto u_ref = Matrix<Scal>::zeros(Nx);
   for (size_t i = 0; i < Nx; ++i) {
     for (size_t j = 0; j < Nx; ++j) {
       using std::sin;
@@ -57,7 +57,7 @@ static void RunPoisson(Config config) {
       const Scal pi = M_PI;
 
       const Scal k = config.uref_k;
-      uref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
+      u_ref(i, j) = sin(pi * sqr(k * x)) * sin(pi * y);
     }
   }
   auto eval_lapl = [hx](auto& u) {  //
@@ -65,36 +65,22 @@ static void RunPoisson(Config config) {
   };
 
   using M = Matrix<Scal>;
-  auto rhs = eval_lapl(uref);
-  std::vector<std::unique_ptr<Var<M>>> var_uu;
-  std::vector<Tracer<M, Extra>> uu;
-  int nx = Nx;
-  // Create variables for multigrid levels.
-  for (int i = 0; i < config.max_nlvl; ++i) {
-    const auto name = "u" + std::to_string(i + 1);
-    var_uu.emplace_back(std::make_unique<Var<M>>(M::zeros(nx), name));
-    uu.emplace_back(*var_uu.back());
-    nx /= 2;
-    if (nx <= 4) {
-      break;
-    }
-  }
+  auto rhs = eval_lapl(u_ref);
+  MultigridVar<Scal, Extra> mg_u(M::zeros_like(u_ref), config.max_nlvl, "u");
+
   std::cout << "multigrid levels: ";
-  for (auto& var_u : var_uu) {
+  for (auto& var_u : mg_u.vars()) {
     auto& m = var_u->value();
     std::cout << "(" << m.nrow() << "," << m.ncol() << ") ";
   }
   std::cout << std::endl;
-  auto u = uu.back();
-  for (size_t i = uu.size() - 1; i > 0;) {
-    --i;
-    u = interpolate(u) + uu[i];
-  }
+
+  auto& u = mg_u.tracer();
   auto loss = mean(sqr(eval_lapl(u) - rhs));
   const NodeOrder<Extra> order = loss.GetFowardOrder();
   dump_graph(order, "poisson.gv");
   loss.UpdateValue(order);  // Required before calling the optimizer.
-  dump_field(uref, "uref.dat");
+  dump_field(u_ref, "uref.dat");
 
   auto time_prev = std::chrono::steady_clock::now();
   const int dump_every = std::max(1, config.epochs / config.frames);
@@ -131,10 +117,8 @@ static void RunPoisson(Config config) {
   adam_config.lr = config.lr;
   std::vector<M*> vars;
   std::vector<const M*> grads;
-  for (size_t i = 0; i < var_uu.size(); ++i) {
-    vars.push_back(&var_uu[i]->value());
-    grads.push_back(&uu[i].grad());
-  }
+  mg_u.AppendValues(vars);
+  mg_u.AppendGrads(grads);
   Adam().Run(adam_config, vars, grads, update_grads, callback);
 }
 

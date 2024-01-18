@@ -727,3 +727,55 @@ struct DotWriter {
   std::map<const void*, std::string> names;
   std::string pad;
 };
+
+template <class T, class E>
+class MultigridVar {
+ public:
+  using M = Matrix<T>;
+
+  MultigridVar(const M& u_init, size_t max_nlvl, std::string name) {
+    size_t nx = u_init.ncol();
+    size_t ny = u_init.nrow();
+    // Create variables for multigrid levels starting from the finest.
+    for (size_t i = 0; i < max_nlvl; ++i) {
+      const std::string lname = name + std::to_string(i + 1);
+      const M value = (i == 0 ? u_init : M::zeros(nx, ny));
+      var_uu_.emplace_back(std::make_unique<Var<M>>(value, lname));
+      uu_.emplace_back(*var_uu_.back());
+      nx /= 2;
+      ny /= 2;
+      if (nx <= 4 || nx % 2 || ny <= 4 || ny % 2) {
+        break;
+      }
+    }
+    u_sum_ = uu_.back();
+    for (size_t i = uu_.size() - 1; i > 0;) {
+      --i;
+      u_sum_ = interpolate(u_sum_) + uu_[i];
+    }
+  }
+  Tracer<M, E>& tracer() {
+    return u_sum_;
+  }
+  const Tracer<M, E>& tracer() const {
+    return u_sum_;
+  }
+  void AppendValues(std::vector<M*>& values) {
+    for (auto& var_u : var_uu_) {
+      values.push_back(&var_u->value());
+    }
+  }
+  void AppendGrads(std::vector<const M*>& grads) {
+    for (auto& u : uu_) {
+      grads.push_back(&u.grad());
+    }
+  }
+  const std::vector<std::unique_ptr<Var<M>>>& vars() const {
+    return var_uu_;
+  }
+
+ private:
+  std::vector<std::unique_ptr<Var<M>>> var_uu_;  // Components.
+  std::vector<Tracer<M, E>> uu_;                 // Tracers of components.
+  Tracer<M, E> u_sum_;                           // Sum of components.
+};

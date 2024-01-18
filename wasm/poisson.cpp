@@ -36,11 +36,9 @@ struct Scene {
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
   // Solver state.
-  M u_ref;                                      // Reference solution.
-  M rhs;                                        // Right-hand side.
-  std::vector<std::unique_ptr<Var<M>>> var_uu;  // Multigrid components.
-  std::vector<Tracer<M, Extra>> uu;  // Tracers of multigrid components.
-  Tracer<M, Extra> u;                // Sum of multigrid components.
+  std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;  // Solution.
+  M u_ref;                                          // Reference solution.
+  M rhs;                                            // Right-hand side.
   NodeOrder<Extra> order;
   Tracer<Scal, Extra> loss;
   std::unique_ptr<Var<M>> var_mask;
@@ -110,40 +108,26 @@ static void InitScene(Scene& scene) {
 
   // Initial guess.
   auto u_init = M::zeros(Nx);
-
+  // Right-hand side.
   scene.rhs = eval_lapl(scene.u_ref);
-  auto& var_uu = scene.var_uu;
-  auto& uu = scene.uu;
-  {  // Create variables for multigrid levels starting from the finest.
-    int nx = Nx;
-    for (int i = 0; i < scene.max_nlvl; ++i) {
-      const auto name = "u" + std::to_string(i + 1);
-      const auto value = (i == 0 ? u_init : M::zeros(nx));
-      var_uu.emplace_back(std::make_unique<Var<M>>(value, name));
-      uu.emplace_back(*var_uu.back());
-      nx /= 2;
-      if (nx <= 4) {
-        break;
-      }
-    }
-    auto u = uu.back();
-    for (size_t i = uu.size() - 1; i > 0;) {
-      --i;
-      u = interpolate(u) + uu[i];
-    }
-    scene.u = u;
-  }
+  // Create variable for solution.
+  scene.mg_u =
+      std::make_unique<MultigridVar<Scal, Extra>>(u_init, scene.max_nlvl, "u");
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<M>>(M::zeros(Nx), "mask");
   scene.mask = Tracer<M, Extra>(*scene.var_mask);
 
-  // Compute loss.
-  scene.loss = mean(sqr(eval_lapl(scene.u) - scene.rhs)) +
-               mean(sqr(scene.u * scene.mask / sqr(hx)));
+  {  // Compute loss.
+    auto& rhs = scene.rhs;
+    auto& u = scene.mg_u->tracer();
+    auto& mask = scene.mask;
+    scene.loss = mean(sqr(eval_lapl(u) - rhs)) + mean(sqr(u * mask / sqr(hx)));
+  }
 
   scene.time_prev = Clock::now();
   scene.callback = [&scene](int epoch) {
     if (epoch % scene.epochs_per_frame == 0) {
+      auto& u = scene.mg_u->tracer().value();
       auto time_curr = Clock::now();
       auto delta = time_curr - scene.time_prev;
       scene.time_prev = time_curr;
@@ -155,8 +139,7 @@ static void InitScene(Scene& scene) {
         return std::snprintf(
             buf, bufsize,
             "epoch=%5d, loss=%.4e<br>throughput=%.3fM cells/s, u:[%.3f,%.3f]",
-            epoch, std::sqrt(scene.loss.value()), throughput,
-            scene.u.value().min(), scene.u.value().max());
+            epoch, std::sqrt(scene.loss.value()), throughput, u.min(), u.max());
       };
       auto& s = scene.status_string;
       s.resize(print(nullptr, 0) + 1);
@@ -170,10 +153,8 @@ static void InitScene(Scene& scene) {
   };
   scene.opt_config.epochs = scene.epochs_per_frame;
   scene.opt_config.lr = scene.lr;
-  for (size_t i = 0; i < var_uu.size(); ++i) {
-    scene.opt_vars.push_back(&var_uu[i]->value());
-    scene.opt_grads.push_back(&uu[i].grad());
-  }
+  scene.mg_u->AppendValues(scene.opt_vars);
+  scene.mg_u->AppendGrads(scene.opt_grads);
   scene.optimizer = std::make_unique<Adam>();
 }
 
@@ -184,7 +165,7 @@ static void AdvanceScene() {
   }
   scene.optimizer->Run(scene.opt_config, scene.opt_vars, scene.opt_grads,
                        scene.update_grads, scene.callback);
-  const auto& u = scene.transform_u(scene.u.value());
+  const auto& u = scene.transform_u(scene.mg_u->tracer().value());
   const Matrix<float> unorm =
       (u - scene.ulim[0]) / (scene.ulim[1] - scene.ulim[0]);
   DrawFieldsOnBitmap(unorm, scene.mask.value(), scene.bitmap);
