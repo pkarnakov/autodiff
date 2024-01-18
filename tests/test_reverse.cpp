@@ -6,6 +6,7 @@
 #include "reverse.h"
 
 // Print and evaluate.
+#define PN(a) std::cout << '\n' << (a) << std::endl;
 #define PE(a) std::cout << #a << ": " << (a) << std::endl;
 #define PEN(a) std::cout << #a << ":\n" << (a) << std::endl;
 
@@ -53,26 +54,54 @@ static void TestReverse(const T& eye, std::string suff) {
   eval(e2, "reverse_" + suff + "2.gv");
 }
 
-template <class T = double>
+template <class Scal = double>
 static void TestMatrix() {
   std::cout << '\n' << __func__ << std::endl;
   auto Str = [](auto m) { return MatrixToStr(m, 3); };
-  const auto matr = Matrix<T>::iota(5);
-  const auto zeros = Matrix<T>::zeros_like(matr);
-  Var var_x(zeros, "x");
-  PEN(Str(matr));
+  const auto matr = Matrix<Scal>::iota(5);
+  Var var_u(Matrix<Scal>::ones_like(matr) * 2, "u");
+  Var var_x(Scal(5), "x");
+  auto u = MakeTracer<Extra>(var_u);
   auto x = MakeTracer<Extra>(var_x);
-  auto grad = [&](auto e) {
+  auto grad_u = [&](auto e) {
+    e.UpdateGrad();
+    return '\n' + Str(u.grad());
+  };
+  auto grad_x = [&](auto e) {
     e.UpdateGrad();
     return x.grad();
   };
-  PEN(Str(grad(sum(x * matr))));
-  PEN(Str(grad(sum(roll(x, 1, 2) * matr))));
-  PEN(Str(grad(x(1, 2))));
-  PEN(Str(grad(sum(conv<T>(x, -4, 1, 1, 1, 1) * matr))));
-  using W = std::array<T, 9>;
-  PEN(Str(grad(sum(conv<T>(x, W{0, 1, 0, 1, -4, 1, 0, 1, 0}) * matr))));
-  PEN(Str(grad(sum(conv<T>(x, W{1, 0, 1, 0, -4, 0, 1, 0, 1}) * matr))));
+  PEN(Str(matr));
+  PEN(Str(u.value()));
+  PE(x.value());
+  PN("Roll.");
+  PE(grad_u(sum(u * matr)));
+  PE(grad_u(sum(roll(u, 1, 2) * matr)));
+  PN("Element access.");
+  PE(grad_u(u(1, 2)));
+  PN("Tracer scalar by constant matrix.");
+  PE(grad_x(sum(x * matr)));
+  PE(grad_x(sum(matr * x)));
+  PN("Tracer scalar by tracer matrix.");
+  PE(grad_u(sum(x * u)));
+  PE(grad_x(sum(x * u)));
+  PE(grad_u(sum(u * x)));
+  PE(grad_x(sum(u * x)));
+  PE(grad_u(sum(x + u)));
+  PE(grad_x(sum(x + u)));
+  PE(grad_u(sum(u + x)));
+  PE(grad_x(sum(u + x)));
+  PE(grad_u(sum(x - u)));
+  PE(grad_x(sum(x - u)));
+  PE(grad_u(sum(u - x)));
+  PE(grad_x(sum(u - x)));
+  PE(grad_u(sum(u / x)));
+  PE(grad_x(sum(u / x)));
+  PN("Convolution.");
+  PE(grad_u(sum(conv<Scal>(u, -4, 1, 1, 1, 1) * matr)));
+  using W = std::array<Scal, 9>;
+  PE(grad_u(sum(conv<Scal>(u, W{0, 1, 0, 1, -4, 1, 0, 1, 0}) * matr)));
+  PE(grad_u(sum(conv<Scal>(u, W{1, 0, 1, 0, -4, 0, 1, 0, 1}) * matr)));
 }
 
 template <class T = double>

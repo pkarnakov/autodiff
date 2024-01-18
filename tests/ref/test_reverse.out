@@ -30,37 +30,105 @@ Str(matr):
  10  11  12  13  14
  15  16  17  18  19
  20  21  22  23  24
-Str(grad(sum(x * matr))):
+Str(u.value()):
+  2   2   2   2   2
+  2   2   2   2   2
+  2   2   2   2   2
+  2   2   2   2   2
+  2   2   2   2   2
+x.value(): 5
+
+Roll.
+grad_u(sum(u * matr)): 
   0   1   2   3   4
   5   6   7   8   9
  10  11  12  13  14
  15  16  17  18  19
  20  21  22  23  24
-Str(grad(sum(roll(x, 1, 2) * matr))):
+grad_u(sum(roll(u, 1, 2) * matr)): 
   7   8   9   5   6
  12  13  14  10  11
  17  18  19  15  16
  22  23  24  20  21
   2   3   4   0   1
-Str(grad(x(1, 2))):
+
+Element access.
+grad_u(u(1, 2)): 
   0   0   0   0   0
   0   0   1   0   0
   0   0   0   0   0
   0   0   0   0   0
   0   0   0   0   0
-Str(grad(sum(conv<T>(x, -4, 1, 1, 1, 1) * matr))):
+
+Tracer scalar by constant matrix.
+grad_x(sum(x * matr)): 300
+grad_x(sum(matr * x)): 300
+
+Tracer scalar by tracer matrix.
+grad_u(sum(x * u)): 
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+grad_x(sum(x * u)): 50
+grad_u(sum(u * x)): 
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+  5   5   5   5   5
+grad_x(sum(u * x)): 50
+grad_u(sum(x + u)): 
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+grad_x(sum(x + u)): 25
+grad_u(sum(u + x)): 
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+grad_x(sum(u + x)): 25
+grad_u(sum(x - u)): 
+ -1  -1  -1  -1  -1
+ -1  -1  -1  -1  -1
+ -1  -1  -1  -1  -1
+ -1  -1  -1  -1  -1
+ -1  -1  -1  -1  -1
+grad_x(sum(x - u)): 25
+grad_u(sum(u - x)): 
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+  1   1   1   1   1
+grad_x(sum(u - x)): -25
+grad_u(sum(u / x)): 
+0.2 0.2 0.2 0.2 0.2
+0.2 0.2 0.2 0.2 0.2
+0.2 0.2 0.2 0.2 0.2
+0.2 0.2 0.2 0.2 0.2
+0.2 0.2 0.2 0.2 0.2
+grad_x(sum(u / x)): -2
+
+Convolution.
+grad_u(sum(conv<Scal>(u, -4, 1, 1, 1, 1) * matr)): 
  30  25  25  25  20
   5   0   0   0  -5
   5   0   0   0  -5
   5   0   0   0  -5
 -20 -25 -25 -25 -30
-Str(grad(sum(conv<T>(x, W{0, 1, 0, 1, -4, 1, 0, 1, 0}) * matr))):
+grad_u(sum(conv<Scal>(u, W{0, 1, 0, 1, -4, 1, 0, 1, 0}) * matr)): 
  30  25  25  25  20
   5   0   0   0  -5
   5   0   0   0  -5
   5   0   0   0  -5
 -20 -25 -25 -25 -30
-Str(grad(sum(conv<T>(x, W{1, 0, 1, 0, -4, 0, 1, 0, 1}) * matr))):
+grad_u(sum(conv<Scal>(u, W{1, 0, 1, 0, -4, 0, 1, 0, 1}) * matr)): 
  60  50  50  50  40
  10   0   0   0 -10
  10   0   0   0 -10
