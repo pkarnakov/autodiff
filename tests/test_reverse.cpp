@@ -54,7 +54,7 @@ static void TestReverse(const T& eye, std::string suff) {
 }
 
 template <class T = double>
-static void TestRoll() {
+static void TestMatrix() {
   std::cout << '\n' << __func__ << std::endl;
   auto Str = [](auto m) { return MatrixToStr(m, 3); };
   const auto matr = Matrix<T>::iota(5);
@@ -68,6 +68,7 @@ static void TestRoll() {
   };
   PEN(Str(grad(sum(x * matr))));
   PEN(Str(grad(sum(roll(x, 1, 2) * matr))));
+  PEN(Str(grad(x(1, 2))));
   PEN(Str(grad(sum(conv<T>(x, -4, 1, 1, 1, 1) * matr))));
   using W = std::array<T, 9>;
   PEN(Str(grad(sum(conv<T>(x, W{0, 1, 0, 1, -4, 1, 0, 1, 0}) * matr))));
@@ -96,6 +97,6 @@ static void TestMultigrid() {
 int main() {
   TestReverse(1., "scal");
   TestReverse(Matrix<double>::eye(3), "matr");
-  TestRoll();
+  TestMatrix();
   TestMultigrid();
 }

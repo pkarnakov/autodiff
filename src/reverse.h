@@ -323,6 +323,11 @@ class Tracer {
     return node_->Visit(extra);
   }
 
+  // Returns element at (i, j) if T is a matrix, and itself otherwise.
+  auto operator()(size_t i, size_t j) const {
+    return at_impl(*this, i, j);
+  }
+
  private:
   std::shared_ptr<Node<T, E>> node_;
 };
@@ -549,6 +554,23 @@ Tracer<T, E> sqr(const Tracer<T, E>& tr_x) {
   return ApplyScalarFunction<T, E>(
       tr_x, [](const T& x) { return sqr(x); },  //
       [](const T& x) { return 2 * x; }, "sqr");
+}
+
+template <class T, class E>
+Tracer<T, E> at_impl(const Tracer<T, E>& tr_x, size_t, size_t) {
+  return tr_x;
+}
+
+template <class T, class E>
+Tracer<T, E> at_impl(const Tracer<Matrix<T>, E>& tr_x, size_t i, size_t j) {
+  return {std::make_shared<NodeUnary<T, Matrix<T>, E>>(
+      tr_x.node(), [i, j](const Matrix<T>& x) { return x(i, j); },
+      [i, j](const Matrix<T>& x, const T& du) {
+        auto res = Matrix<T>::zeros_like(x);
+        res(i, j) = du;
+        return res;
+      },
+      "at(" + std::to_string(i) + "," + std::to_string(j) + ")")};
 }
 
 ////////////////////////////////////////
