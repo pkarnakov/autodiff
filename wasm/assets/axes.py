@@ -51,3 +51,4 @@ def save_arrow(path, lx=None, ly=None, node=None, xlabel=None, ylabel=None):
 
 if __name__ == "__main__":
     save_arrow('axes_xt', 0.4, 0.4, xlabel='x', ylabel='t')
+    save_arrow('axes_xy', 0.4, 0.4, xlabel='x', ylabel='y')

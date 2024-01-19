@@ -137,9 +137,10 @@ static void InitScene(Scene& scene) {
       const Scal throughput =
           (ms > 0 ? 1e-3 * scene.rhs.size() * scene.epochs_per_frame / ms : 0);
       auto print = [&](char* buf, size_t bufsize) -> int {
-        return std::snprintf(
+        return std::snprintf(  //
             buf, bufsize,
-            "epoch=%5d, loss=%.4e<br>throughput=%.3fM cells/s, u:[%.3f,%.3f]",
+            "epoch=%5d, loss=%.4e,<br>"
+            "throughput=%.3fM cells/s, u:[%.3f,%.3f]",
             epoch, std::sqrt(scene.loss.value()), throughput, u.min(), u.max());
       };
       auto& s = scene.status_string;

@@ -31,7 +31,7 @@ struct Scene {
   int Nx = 128;
   std::array<Scal, 2> xlim = {0, 1};
   std::array<Scal, 2> tlim = {0, 1};
-  Scal max_vel = 0.04;
+  Scal max_vel = 4;  // Maximum velocity.
   int epochs_per_frame = 20;
   int max_nlvl = 4;
   Scal lr = 0.005;
@@ -86,7 +86,9 @@ static void InitScene(Scene& scene) {
     }
   }
 
-  auto transform_vel = [](auto& vel) { return tanh(vel) * 4; };
+  auto transform_vel = [&max_vel = scene.max_vel](auto& vel) {
+    return tanh(vel) * max_vel;
+  };
   scene.transform_vel = transform_vel;
 
   // Evaluates the discrete operator.
@@ -137,10 +139,11 @@ static void InitScene(Scene& scene) {
       const Scal throughput =
           (ms > 0 ? 1e-3 * u.size() * scene.epochs_per_frame / ms : 0);
       auto print = [&](char* buf, size_t bufsize) -> int {
-        return std::snprintf(
+        return std::snprintf(  //
             buf, bufsize,
-            "epoch=%5d, loss=%.4e, vel=%.3f<br>throughput=%.3fM cells/s", epoch,
-            std::sqrt(scene.loss.value()), vel, throughput);
+            "epoch=%5d, loss=%.4e, vel=%.3f,<br>"
+            "throughput=%.3fM cells/s",
+            epoch, std::sqrt(scene.loss.value()), vel, throughput);
       };
       auto& s = scene.status_string;
       s.resize(print(nullptr, 0) + 1);

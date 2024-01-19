@@ -574,6 +574,13 @@ Tracer<T, E> sqr(const Tracer<T, E>& tr_x) {
 }
 
 template <class T, class E>
+Tracer<T, E> sqrt(const Tracer<T, E>& tr_x) {
+  return ApplyScalarFunction<T, E>(
+      tr_x, [](const T& x) { return sqrt(x); },  //
+      [](const T& x) { return 0.5 / sqrt(x); }, "sqrt");
+}
+
+template <class T, class E>
 Tracer<T, E> sigmoid(const Tracer<T, E>& tr_x) {
   using std::exp;
   return ApplyScalarFunction<T, E>(
