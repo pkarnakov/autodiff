@@ -16,9 +16,18 @@ html, body {
   padding: 0.5em;
   text-align: center;
   max-width: 500px;
+  width: 100%;
+  -webkit-box-sizing: border-box;
+     -moz-box-sizing: border-box;
+          box-sizing: border-box;
 }
 .row {
   margin: 0.5em 0 0.5em 0;
+}
+.toprow {
+  margin: 0.5em 0 0.5em 0;
+  overflow: scroll;
+  white-space: nowrap;
 }
 #canvas {
   outline: 1px black solid;
