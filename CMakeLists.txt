@@ -159,6 +159,20 @@ if (BUILD_WASM)
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
   configure_file(wasm/heat.html heat.html COPYONLY)
 
+  # Advection.
+  set(T advection)
+  add_executable(${T} wasm/advection.cpp)
+  target_link_libraries(${T} graphics)
+  target_link_options(${T} PRIVATE "-sEXPORTED_FUNCTIONS=[\
+    '_main', '_malloc' \
+    , '_GetBitmapWidth', '_GetBitmapHeight' \
+    , '_SendKeyDown', '_SendMouseMotion', '_SendMouseDown', '_SendMouseUp' \
+    , '_Init', '_SetPause', '_GetStatusString' \
+  ]")
+  target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
+  configure_file(wasm/advection.html advection.html COPYONLY)
+
+
   # Common.
   configure_file(wasm/index.html index.html COPYONLY)
   configure_file(wasm/favicon.png favicon.png COPYONLY)

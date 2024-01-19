@@ -183,6 +183,7 @@ function postRun() {
   canvas.addEventListener('mousemove', handler_mousemove);
   canvas.addEventListener('mousedown', handler_mousedown);
   canvas.addEventListener('mouseup', handler_mouseup);
+  canvas.addEventListener('mouseout', handler_mouseup);
   canvas.addEventListener('touchmove', handler_touchmove);
   canvas.addEventListener('touchstart', handler_touchstart);
   canvas.addEventListener('touchend', handler_touchend);

@@ -22,6 +22,12 @@ T tanh(T x) {
 }
 
 template <class T>
+T sigmoid(T x) {
+  using std::exp;
+  return 1 / (1 + exp(-x));
+}
+
+template <class T>
 class Matrix {
  public:
   template <class U>
@@ -591,6 +597,20 @@ class Matrix {
   template <class U>
   friend Matrix conv(const Matrix& matr, const std::array<U, 9>& a) {
     return matr.conv(a);
+  }
+  friend Matrix maximum(const Matrix& matr, const T& a) {
+    Matrix res(matr.nrow_, matr.ncol_);
+    for (size_t i = 0; i < matr.size(); ++i) {
+      res[i] = std::max(matr[i], a);
+    }
+    return res;
+  }
+  friend Matrix minimum(const Matrix& matr, const T& a) {
+    Matrix res(matr.nrow_, matr.ncol_);
+    for (size_t i = 0; i < matr.size(); ++i) {
+      res[i] = std::min(matr[i], a);
+    }
+    return res;
   }
 
   // Static functions.

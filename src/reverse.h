@@ -574,6 +574,19 @@ Tracer<T, E> sqr(const Tracer<T, E>& tr_x) {
 }
 
 template <class T, class E>
+Tracer<T, E> sigmoid(const Tracer<T, E>& tr_x) {
+  using std::exp;
+  return ApplyScalarFunction<T, E>(
+      tr_x, [](const T& x) { return 1 / (1 + exp(-x)); },
+      [](const T& x) {
+        // TODO: Consider using tr_x.value() here.
+        const T s = 1 / (1 + exp(-x));
+        return s * (1 - s);
+      },
+      "sigmoid");
+}
+
+template <class T, class E>
 Tracer<T, E> at_impl(const Tracer<T, E>& tr_x, size_t, size_t) {
   return tr_x;
 }
@@ -588,6 +601,48 @@ Tracer<T, E> at_impl(const Tracer<Matrix<T>, E>& tr_x, size_t i, size_t j) {
         return res;
       },
       "at(" + std::to_string(i) + "," + std::to_string(j) + ")")};
+}
+
+template <class T, class E, class Scal>
+Tracer<T, E> maximum(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [y](const T& x) { return x >= y ? x : y; },
+      [y](const T& x, const T& du) { return x >= y ? du : 0; }, "maximum")};
+}
+
+template <class T, class E, class Scal>
+Tracer<Matrix<T>, E> maximum(const Tracer<Matrix<T>, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<Matrix<T>, Matrix<T>, E>>(
+      tr_x.node(), [y](const Matrix<T>& x) { return maximum(x, y); },
+      [y](const Matrix<T>& x, const Matrix<T>& du) {
+        Matrix<T> res(x.nrow(), x.ncol());
+        for (size_t i = 0; i < x.size(); ++i) {
+          res[i] = (x[i] >= y ? du[i] : 0);
+        }
+        return res;
+      },
+      "maximum")};
+}
+
+template <class T, class E, class Scal>
+Tracer<T, E> minimum(const Tracer<T, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<T, T, E>>(
+      tr_x.node(), [y](const T& x) { return x <= y ? x : y; },
+      [y](const T& x, const T& du) { return x <= y ? du : 0; }, "minimum")};
+}
+
+template <class T, class E, class Scal>
+Tracer<Matrix<T>, E> minimum(const Tracer<Matrix<T>, E>& tr_x, const Scal& y) {
+  return {std::make_shared<NodeUnary<Matrix<T>, Matrix<T>, E>>(
+      tr_x.node(), [y](const Matrix<T>& x) { return minimum(x, y); },
+      [y](const Matrix<T>& x, const Matrix<T>& du) {
+        Matrix<T> res(x.nrow(), x.ncol());
+        for (size_t i = 0; i < x.size(); ++i) {
+          res[i] = (x[i] <= y ? du[i] : 0);
+        }
+        return res;
+      },
+      "minimum")};
 }
 
 ////////////////////////////////////////
@@ -608,11 +663,8 @@ Tracer<Matrix<T>, E> operator+(Tracer<T, E> tr_x, Tracer<Matrix<T>, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, T, Matrix<T>, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const Matrix<T>& y) { return x + y; },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) {
-        return du.sum();
-      },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) { return du; },
-      "+")};
+      [](const T&, const Matrix<T>&, const Matrix<T>& du) { return du.sum(); },
+      [](const T&, const Matrix<T>&, const Matrix<T>& du) { return du; }, "+")};
 }
 
 template <class T, class E>
@@ -620,10 +672,8 @@ Tracer<Matrix<T>, E> operator+(Tracer<Matrix<T>, E> tr_x, Tracer<T, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, Matrix<T>, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const Matrix<T>& x, const T& y) { return x + y; },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) { return du; },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) {
-        return du.sum();
-      },
+      [](const Matrix<T>&, const T&, const Matrix<T>& du) { return du; },
+      [](const Matrix<T>&, const T&, const Matrix<T>& du) { return du.sum(); },
       "+")};
 }
 
@@ -641,10 +691,8 @@ Tracer<Matrix<T>, E> operator-(Tracer<T, E> tr_x, Tracer<Matrix<T>, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, T, Matrix<T>, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const Matrix<T>& y) { return x - y; },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) {
-        return du.sum();
-      },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) { return -du; },
+      [](const T&, const Matrix<T>&, const Matrix<T>& du) { return du.sum(); },
+      [](const T&, const Matrix<T>&, const Matrix<T>& du) { return -du; },
       "-")};
 }
 
@@ -653,13 +701,10 @@ Tracer<Matrix<T>, E> operator-(Tracer<Matrix<T>, E> tr_x, Tracer<T, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, Matrix<T>, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const Matrix<T>& x, const T& y) { return x - y; },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) { return du; },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) {
-        return -du.sum();
-      },
+      [](const Matrix<T>&, const T&, const Matrix<T>& du) { return du; },
+      [](const Matrix<T>&, const T&, const Matrix<T>& du) { return -du.sum(); },
       "-")};
 }
-
 
 template <class T, class E>
 Tracer<T, E> operator*(Tracer<T, E> tr_x, Tracer<T, E> tr_y) {
@@ -675,12 +720,10 @@ Tracer<Matrix<T>, E> operator*(Tracer<T, E> tr_x, Tracer<Matrix<T>, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, T, Matrix<T>, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const T& x, const Matrix<T>& y) { return x * y; },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) {
+      [](const T&, const Matrix<T>& y, const Matrix<T>& du) {
         return (y * du).sum();
       },
-      [](const T& x, const Matrix<T>& y, const Matrix<T>& du) {
-        return x * du;
-      },
+      [](const T& x, const Matrix<T>&, const Matrix<T>& du) { return x * du; },
       "*")};
 }
 
@@ -689,10 +732,8 @@ Tracer<Matrix<T>, E> operator*(Tracer<Matrix<T>, E> tr_x, Tracer<T, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, Matrix<T>, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const Matrix<T>& x, const T& y) { return x * y; },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) {
-        return y * du;
-      },
-      [](const Matrix<T>& x, const T& y, const Matrix<T>& du) {
+      [](const Matrix<T>&, const T& y, const Matrix<T>& du) { return y * du; },
+      [](const Matrix<T>& x, const T&, const Matrix<T>& du) {
         return (x * du).sum();
       },
       "*")};
@@ -713,11 +754,9 @@ Tracer<Matrix<T>, E> operator/(Tracer<Matrix<T>, E> tr_x, Tracer<T, E> tr_y) {
   return {std::make_shared<NodeBinary<Matrix<T>, Matrix<T>, T, E>>(
       tr_x.node(), tr_y.node(),  //
       [](const Matrix<T>& x, const T& y) { return x / y; },
-      [](const Matrix<T>&, const T& y, const Matrix<T>& du) {
-        return du / y;
-      },
+      [](const Matrix<T>&, const T& y, const Matrix<T>& du) { return du / y; },
       [](const Matrix<T>& x, const T& y, const Matrix<T>& du) {
-        return -(x * du).sum() / (y * y); 
+        return -(x * du).sum() / (y * y);
       },
       "/")};
 }
