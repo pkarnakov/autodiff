@@ -33,10 +33,12 @@ struct Scene {
   std::array<Scal, 2> ylim = {0, 1};
   int epochs_per_frame = 10;
   int max_nlvl = 4;
-  Scal max_vel = 4;   // Maximum velocity.
+  Scal max_vel = 10;  // Maximum velocity.
+  Scal kimp = 10;    // Weight of imposed values.
   Scal kreg = 0.005;  // Weight of velocity regularization.
-  Scal lr = 0.001;
-  std::array<Scal, 2> ulim = {-0.7, 0.7};
+  Scal kregu = 0.001;  // Weight of field regularization.
+  Scal lr = 0.005;
+  std::array<Scal, 2> ulim = {-0.5, 0.5};
 
   // Solver state.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;   // Solution.
@@ -95,20 +97,26 @@ static void InitScene(Scene& scene) {
   scene.transform_vx = transform_vx;
   scene.transform_vy = transform_vy;
 
-  // Evaluates the discrete operator.
-  auto operator_advection = [hx, hy](auto& u, auto& vx, auto& vy) {
-    auto fd_second = [](auto& u, int dx, int dy, Scal h) {
-      auto upp = roll(u, -dx * 2, -dy * 2);
-      auto up = roll(u, -dx, -dy);
-      return (-upp + 4 * up - 3 * u) * (0.5 / h);
-    };
-    auto fd_central = [](auto& u, int dx, int dy, Scal h) {
-      auto up = roll(u, -dx, -dy);
-      auto um = roll(u, dx, dy);
-      return (up - um) * (0.5 / h);
-    };
+  auto fd_second = [](auto& u, int dx, int dy, Scal h) {
+    auto upp = roll(u, -dx * 2, -dy * 2);
+    auto up = roll(u, -dx, -dy);
+    return (-upp + 4 * up - 3 * u) * (0.5 / h);
+  };
+  auto fd_first = [](auto& u, int dx, int dy, Scal h) {
+    auto up = roll(u, -dx, -dy);
+    return (up - u) / h;
+  };
+  auto fd_central = [](auto& u, int dx, int dy, Scal h) {
+    auto up = roll(u, -dx, -dy);
+    auto um = roll(u, dx, dy);
+    return (up - um) * (0.5 / h);
+  };
+  (void)fd_first;
 
-    if (1) {  // Second order upwind.
+  // Evaluates the discrete operator.
+  auto operator_advection = [hx, hy, fd_central, fd_second](auto& u, auto& vx,
+                                                            auto& vy) {
+    if (0) {  // Second order upwind.
       auto u_xm = fd_second(u, -1, 0, -hx);
       auto u_xp = fd_second(u, 1, 0, hx);
       auto u_ym = fd_second(u, 0, -1, -hy);
@@ -150,7 +158,8 @@ static void InitScene(Scene& scene) {
     auto vx = transform_vx(scene.mg_vx->tracer());
     auto vy = transform_vy(scene.mg_vy->tracer());
     scene.loss = mean(sqr(operator_advection(u, vx, vy) * inner)) +
-                 mean(sqr(u - mask) / hx) +
+                 mean(sqr((u - mask) * scene.kimp)) +
+                 mean(sqr(operator_lapl(u) * (inner * scene.kregu))) +
                  mean(sqr(operator_lapl(vx) * (inner * scene.kreg))) +
                  mean(sqr(operator_lapl(vy) * (inner * scene.kreg)));
   }
