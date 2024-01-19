@@ -523,6 +523,10 @@ class Matrix {
     using std::log;
     return matr.apply([](T x) { return log(x); });
   }
+  friend Matrix abs(const Matrix& matr) {
+    using std::abs;
+    return matr.apply([](T x) { return abs(x); });
+  }
   friend Matrix sqr(const Matrix& matr) {
     return matr.apply([](T x) { return sqr(x); });
   }
