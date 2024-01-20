@@ -16,13 +16,7 @@
     </noscript>
 
     <div id="content_column">
-      <div class="toprow">
-        <a class="github-button" href="https://github.com/pkarnakov/autodiff" data-icon="octicon-star" data-size="large" data-show-count="true" aria-label="Star pkarnakov/autodiff on GitHub">Star</a>
-        <a href="poisson.html" class="demo">Poisson</a>
-        <a href="wave.html" class="demo">Wave</a>
-        <a href="heat.html" class="demo">Heat</a>
-        <a href="advection.html" class="demo current">Adv</a>
-      </div>
+@HTML_MENU@
       <div class="row">
         <canvas id="canvas" tabindex=-1></canvas>
       </div>
@@ -31,7 +25,7 @@
         <input type="button" title='r' class="button" id="button_restart" value="restart" onclick="pressButton('r')">
         <img src="axes_xt.svg" class="axes" />
       </div>
-      <div class="row">
+      <div class="row" id="text_help">
         <span class="kbdspan"><kbd>click</kbd> draw reference solution,</span>
         <span class="kbdspan"><kbd>space</kbd> toggle pause,</span>
         <span class="kbdspan"><kbd>r</kbd> restart</span>

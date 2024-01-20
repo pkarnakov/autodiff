@@ -1,4 +1,3 @@
-var debug = false;
 var textarea_out;
 var textarea_err;
 var g_shared_canvas;
@@ -25,19 +24,22 @@ var GetStatusString;
 var GetBitmapWidth;
 var GetBitmapHeight;
 var flag_pause = false;
+var flag_debug = false;
 var Init;
 
 function draw() {
   let canvas = Module['canvas'];
   let ctx = canvas.getContext('2d');
   ctx.drawImage(g_shared_canvas, 0, 0, canvas.width, canvas.height);
-  window.text_status.innerHTML = GetStatusString();
+  text_status = window.text_status;
+  if (text_status) {
+    text_status.innerHTML = GetStatusString();
+  }
 }
 
 function restart() {
   Init();
   flag_pause = false;
-  flag_accel = false;
   syncButtons();
 }
 
@@ -94,7 +96,7 @@ function pressButton(c) {
 }
 
 function preRun() {
-  if (debug) {
+  if (flag_debug) {
     const fragment = document.createDocumentFragment();
     const div = fragment.appendChild(document.createElement("div"));
     div.className = "row";
@@ -105,6 +107,36 @@ function preRun() {
     textarea_err.id = "textarea_err";
     div.appendChild(textarea_err);
     window.content_column.appendChild(fragment);
+  }
+
+  url = new URL(window.location.href);
+
+  let param_debug = url.searchParams.get("debug");
+  if (param_debug == "1") {
+    flag_debug = true;
+  }
+
+  if (url.searchParams.get("status") == "0") {
+    document.getElementById('text_status').remove();
+  }
+
+  if (url.searchParams.get("help") == "0") {
+    document.getElementById('text_help').remove();
+  }
+
+  let param_menu = url.searchParams.get("menu");
+  if (param_menu == "0") {
+    document.getElementById('menurow').remove();
+  } else {
+    // Mark the link of current demo.
+    let elems = window.menurow.getElementsByClassName('demo');
+    current_path = url.pathname;
+    for (let i = 0; i < elems.length; ++i) {
+      elem_path = new URL(elems[i].href).pathname;
+      if (elem_path == current_path) {
+        elems[i].className += " current";
+      }
+    }
   }
 }
 

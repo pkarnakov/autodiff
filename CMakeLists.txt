@@ -120,6 +120,11 @@ if (BUILD_WASM)
   set(T graphics)
   add_library(${T} wasm/graphics.cpp)
 
+  # Read menu file.
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS wasm/menu.html)
+  file(STRINGS wasm/menu.html HTML_MENU)
+  string(REPLACE ";" "\n" HTML_MENU "${HTML_MENU}")
+
   # Poisson.
   set(T poisson)
   add_executable(${T} wasm/poisson.cpp)
@@ -131,7 +136,7 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  configure_file(wasm/poisson.html poisson.html COPYONLY)
+  configure_file(wasm/poisson.html poisson.html @ONLY)
 
   # Wave.
   set(T wave)
@@ -144,7 +149,7 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  configure_file(wasm/wave.html wave.html COPYONLY)
+  configure_file(wasm/wave.html wave.html @ONLY)
 
   # Heat.
   set(T heat)
@@ -157,7 +162,7 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  configure_file(wasm/heat.html heat.html COPYONLY)
+  configure_file(wasm/heat.html heat.html @ONLY)
 
   # Advection.
   set(T advection)
@@ -170,7 +175,7 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  configure_file(wasm/advection.html advection.html COPYONLY)
+  configure_file(wasm/advection.html advection.html @ONLY)
 
   # Advection2.
   set(T advection2)
@@ -183,7 +188,7 @@ if (BUILD_WASM)
     , '_Init', '_SetPause', '_GetStatusString' \
   ]")
   target_link_options(${T} PRIVATE "-sEXPORTED_RUNTIME_METHODS=['cwrap', 'ccall']")
-  configure_file(wasm/advection2.html advection2.html COPYONLY)
+  configure_file(wasm/advection2.html advection2.html @ONLY)
 
   # Common.
   configure_file(wasm/index.html index.html COPYONLY)
