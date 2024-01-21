@@ -33,7 +33,7 @@ struct Scene {
   int max_nlvl = 4;
   Scal lr = 0.005;
   Scal osc_k = 2;
-  std::array<Scal, 2> ulim = {-0.5, 0.5};
+  std::array<Scal, 2> ulim = {-0.8, 0.8};
 
   // Solver state.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;  // Solution.

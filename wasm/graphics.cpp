@@ -6,27 +6,25 @@
 
 #include "macros.h"
 
+using std::uint8_t;
+#include "assets/colormap.h"
+
 // Draws fields on a bitmap.
-// u: solution field with values in [0, 1]; drawn with colors [C0,C1,C2].
+// u: solution field with values in [0, 1]; drawn with colors kColorsRGB.
 // mask: mask field with values in [0, 1]; drawn with color C3.
 // bitmap: buffer for pixels ABGR, will be resized to `u.size()`.
 void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
                         std::vector<uint32_t>& bitmap) {
-  const float C0[] = {0.34, 0.17, 0.54};  // Blue.
-  const float C1[] = {0.97, 0.97, 0.97};  // White.
-  const float C2[] = {0.85, 0.5, 0.07};   // Orange.
   const float C3[] = {0, 0.95, 0.6};      // Green.
   const size_t nx = u.nrow();
   const size_t ny = u.ncol();
   fassert_equal(mask.nrow(), nx);
   fassert_equal(mask.ncol(), ny);
   bitmap.resize(u.size());
-  auto linear = [](float x, float x0, float x1, float u0, float u1) {
-    return ((x1 - x) * u0 + (x - x0) * u1) / (x1 - x0);
-  };
-  auto color = [&](float v, int k) {
-    return (v < 0.5 ? linear(v, 0, 0.5, C0[k], C1[k])
-                    : linear(v, 0.5, 1, C1[k], C2[k]));
+  auto cmap = [&](int icolor, float delta, int k) -> float {
+    const float c0 = kColorsRGB[icolor][k] / 255.;
+    const float c1 = kColorsRGB[icolor + 1][k] / 255.;
+    return c1 * delta + c0 * (1 - delta);
   };
   auto blend = [](float c, float ca, float a) -> float {
     return c * (1 - a) + ca * a;
@@ -34,13 +32,20 @@ void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
   auto round = [](float c) -> uint8_t {
     return Clip<float>(c * 255 + 0.5, 0, 255);
   };
+  const int ncolors = sizeof(kColorsRGB) / sizeof(kColorsRGB[0]);
+  const float mask_opacity = 0.5;
+  fassert(ncolors > 1);
   for (size_t ix = 0; ix < nx; ++ix) {
     for (size_t iy = 0; iy < ny; ++iy) {
       const float vu = Clip<float>(u(ix, iy), 0, 1);
-      const float vmask = Clip<float>(mask(ix, iy), 0, 1);
-      const uint8_t r = round(blend(color(vu, 0), C3[0], vmask * 0.5));
-      const uint8_t g = round(blend(color(vu, 1), C3[1], vmask * 0.5));
-      const uint8_t b = round(blend(color(vu, 2), C3[2], vmask * 0.5));
+      const float vmask = Clip<float>(mask(ix, iy), 0, 1) * mask_opacity;
+      const float fcolor = vu * (ncolors - 1);
+      const int icolor = Clip<int>(fcolor, 0, ncolors - 2);
+      const float delta = fcolor - icolor;
+      const uint8_t r = round(blend(cmap(icolor, delta, 0), C3[0], vmask));
+      const uint8_t g = round(blend(cmap(icolor, delta, 1), C3[1], vmask));
+      const uint8_t b = round(blend(cmap(icolor, delta, 2), C3[2], vmask));
+
       bitmap[(ny - iy - 1) * nx + ix] = (0xFF << 24) | (b << 16) | (g << 8) | r;
     }
   }

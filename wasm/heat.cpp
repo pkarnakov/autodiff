@@ -35,7 +35,7 @@ struct Scene {
   int epochs_per_frame = 20;
   int max_nlvl = 4;
   Scal lr = 0.005;
-  std::array<Scal, 2> ulim = {-0.25, 0.25};
+  std::array<Scal, 2> ulim = {-0.4, 0.4};
 
   // Solver state.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;  // Solution.

@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def plot(path, u, vmin=None, vmax=None, cmap="Oranges"):
+def plot(path, u, vmin=None, vmax=None, cmap="PuOr_r"):
     vmin = u.min() if vmin is None else vmin
     vmax = u.max() if vmax is None else vmax
     nx, ny = u.shape
