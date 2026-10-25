@@ -35,6 +35,8 @@ solution by gradient descent).
 - Native: `make` (CMake into `build/`), `make test` (ctest).
   Options: `USE_OPENCL`, `BUILD_POISSON`, `BUILD_TESTS`, `USE_MARCH_NATIVE`.
   Without OpenCL: `cd build && cmake .. -DUSE_OPENCL=0`.
+- CI (`.github/workflows/ci.yml`): `make check`; native build without
+  OpenCL with `-Werror` and ctest; WebAssembly build with Emscripten 6.0.9.
 - Reference outputs: a missing `tests/ref/*.out` is created from the
   current output; `make test_update` regenerates all of them. Review the
   diff before committing regenerated references.
@@ -58,8 +60,10 @@ and records the source revision; `make demos_commit` commits it in the
 
 ## Conventions
 
-- Formatting: `clang-format` (Google style, see `.clang-format`); Python:
-  `yapf` (`.style.yapf`).
+- Formatting and lint: `make check` (what CI runs), `make fix` to apply.
+  C++: `clang-format` (Google style, `.clang-format`; generated
+  `wasm/assets/colormap.h` excluded in `.clang-format-ignore`). Python:
+  `ruff` (`ruff.toml`). Both pinned in the `Makefile`, run through `uvx`.
 - Compiler warnings are on (`-Wall -Wextra -pedantic -Wshadow`); keep
   builds warning-free.
 - Commit subjects: `area: change`, lowercase, short, e.g.
