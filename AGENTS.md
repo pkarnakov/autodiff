@@ -21,10 +21,10 @@ solution by gradient descent).
 - `tests/`: `test_*.cpp`, each prints to stdout; `tests/test` diffs the
   output against `tests/ref/<name>.out`.
 - `wasm/`: Emscripten demos (`poisson`, `wave`, `heat`, `advection`,
-  `advection2`). Each demo is `NAME.cpp` + `NAME.html`; shared code in
-  `graphics.{h,cpp}`, `view.{js,css}`, `menu.html` (substituted into pages
-  as `@HTML_MENU@` by CMake `configure_file`), `assets/` (colormap, axes,
-  with Python generators), `libs/`.
+  `advection2`, `advection3`). Each demo is `NAME.cpp` + `NAME.html`;
+  shared code in `graphics.{h,cpp}`, `view.{js,css}`, `menu.html`
+  (substituted into pages as `@HTML_MENU@` by CMake `configure_file`),
+  `assets/` (colormap, axes, with Python generators), `libs/`.
 - `pages/`: separate clone of the `gh-pages` branch (`make pages`),
   ignored by the main repo. Published at
   <https://pkarnakov.github.io/autodiff>.
