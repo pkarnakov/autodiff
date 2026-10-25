@@ -15,7 +15,7 @@ using std::uint8_t;
 // bitmap: buffer for pixels ABGR, will be resized to `u.size()`.
 void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
                         std::vector<uint32_t>& bitmap) {
-  const float C3[] = {0, 0.95, 0.6};      // Green.
+  const float C3[] = {0, 0.95, 0.6};  // Green.
   const size_t nx = u.nrow();
   const size_t ny = u.ncol();
   fassert_equal(mask.nrow(), nx);
