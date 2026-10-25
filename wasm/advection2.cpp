@@ -33,9 +33,9 @@ struct Scene {
   std::array<Scal, 2> ylim = {0, 1};
   int epochs_per_frame = 10;
   int max_nlvl = 4;
-  Scal max_vel = 10;  // Maximum velocity.
-  Scal kimp = 10;    // Weight of imposed values.
-  Scal kreg = 0.005;  // Weight of velocity regularization.
+  Scal max_vel = 10;   // Maximum velocity.
+  Scal kimp = 10;      // Weight of imposed values.
+  Scal kreg = 0.005;   // Weight of velocity regularization.
   Scal kregu = 0.001;  // Weight of field regularization.
   Scal lr = 0.005;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
