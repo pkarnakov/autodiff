@@ -7,6 +7,10 @@ MAKEFILE_WASM = $(BUILD_WASM)/Makefile
 CMAKE_WASM = emcmake cmake
 FLAGS_WASM = -DUSE_OPENCL=0 -DBUILD_WASM=1 -DBUILD_POISSON=0 -DBUILD_TESTS=0 -DUSE_MARCH_NATIVE=0
 
+# Formatters, pinned so that local runs and CI agree.
+CLANG_FORMAT = uvx --from clang-format==23.1.3 clang-format
+RUFF = uvx ruff@0.17.2
+
 default: build
 
 $(MAKEFILE):
@@ -49,6 +53,16 @@ test_update:
 	rm -vf tests/ref/*.out
 	cd $(BUILD) && ctest -j`nproc --all`
 
+check:
+	git ls-files '*.cpp' '*.h' | xargs $(CLANG_FORMAT) --dry-run --Werror
+	$(RUFF) check
+	$(RUFF) format --check
+
+fix:
+	git ls-files '*.cpp' '*.h' | xargs $(CLANG_FORMAT) -i
+	$(RUFF) check --fix
+	$(RUFF) format
+
 clean:
 	rm -rf $(BUILD) $(BUILD_WASM)
 
@@ -56,4 +70,4 @@ pages:
 	git clone -b gh-pages --single-branch git@github.com:pkarnakov/autodiff.git pages
 
 .SUFFIXES:
-.PHONY: default build clean test test_update run_poisson run_poisson_cl build_wasm serve
+.PHONY: default build clean test test_update run_poisson run_poisson_cl build_wasm serve check fix
