@@ -40,7 +40,7 @@ struct Scene {
   Scal kunit = 3;       // Weight of penalty on deviation of |v| from 1.
   Scal kzero = 1;       // Weight of penalty on |v| where it is not required.
   Scal grad_ref = 0.1;  // Change of u per cell at which |v| = 1 is required.
-  Scal vel_init = 0.1;  // Initial velocity in x, since v = 0 is stationary.
+  Scal kalign = 1;      // Weight of preference of v along level lines of u.
   Scal lr = 0.005;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
@@ -54,6 +54,11 @@ struct Scene {
   // Weight w in [0, 1] of the requirement |v| = 1, a function of |grad u|.
   // Updated from u every frame and not differentiated.
   std::unique_ptr<Var<Matr>> var_w;
+  // Tangent t = (-u_y, u_x) / grad_ref to level lines of u, preferred
+  // direction of v. Breaks the symmetry v -> -v, so v = 0 is not stationary.
+  // Updated from u every frame and not differentiated.
+  std::unique_ptr<Var<Matr>> var_tx;
+  std::unique_ptr<Var<Matr>> var_ty;
   Tracer<Matr, Extra> mask;
   NodeOrder<Extra> order;
   Tracer<Scal, Extra> loss;
@@ -137,13 +142,15 @@ static void InitScene(Scene& scene) {
       Matr::zeros(Nx), scene.max_nlvl, "u");
   // Create variables for velocity.
   scene.mg_vx = std::make_unique<MultigridVar<Scal, Extra>>(  //
-      Matr::zeros(Nx) + scene.vel_init, scene.max_nlvl, "vx");
+      Matr::zeros(Nx), scene.max_nlvl, "vx");
   scene.mg_vy = std::make_unique<MultigridVar<Scal, Extra>>(  //
       Matr::zeros(Nx), scene.max_nlvl, "vy");
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "mask");
   scene.mask = MakeTracer<Extra>(*scene.var_mask);
   scene.var_w = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "w");
+  scene.var_tx = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "tx");
+  scene.var_ty = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "ty");
 
   {  // Compute loss.
     auto& u = scene.mg_u->tracer();
@@ -151,6 +158,8 @@ static void InitScene(Scene& scene) {
     auto& vx = scene.mg_vx->tracer();
     auto& vy = scene.mg_vy->tracer();
     auto w = MakeTracer<Extra>(*scene.var_w);
+    auto tx = MakeTracer<Extra>(*scene.var_tx);
+    auto ty = MakeTracer<Extra>(*scene.var_ty);
     auto v2 = sqr(vx) + sqr(vy);
     scene.loss = mean(sqr(operator_advection(u, vx, vy) * inner)) +
                  mean(sqr((u - mask) * scene.kimp)) +
@@ -158,7 +167,8 @@ static void InitScene(Scene& scene) {
                  mean(operator_grad2(vx) * (inner * sqr(scene.kreg))) +
                  mean(operator_grad2(vy) * (inner * sqr(scene.kreg))) +
                  mean(sqr(1 - v2) * w * sqr(scene.kunit)) +
-                 mean(v2 * (1 - w) * sqr(scene.kzero));
+                 mean(v2 * (1 - w) * sqr(scene.kzero)) -
+                 mean((vx * tx + vy * ty) * scene.kalign);
   }
 
   scene.time_prev = Clock::now();
@@ -203,7 +213,8 @@ static void InitScene(Scene& scene) {
   scene.optimizer = std::make_unique<Adam>();
 }
 
-// Updates the weight of the requirement |v| = 1 from the current solution.
+// Updates the weight of the requirement |v| = 1 and the preferred direction
+// of velocity from the current solution.
 static void UpdateWeight(Scene& scene) {
   const Matr& u = scene.mg_u->tracer().value();
   // Central differences in units of change per cell.
@@ -211,6 +222,8 @@ static void UpdateWeight(Scene& scene) {
   const Matr du_y = (u.roll(0, -1) - u.roll(0, 1)) * 0.5;
   const Matr g2 = (sqr(du_x) + sqr(du_y)) / sqr(scene.grad_ref);
   scene.var_w->value() = 1 - exp(-g2);
+  scene.var_tx->value() = -du_y / scene.grad_ref;
+  scene.var_ty->value() = du_x / scene.grad_ref;
 }
 
 static void AdvanceScene(Scene& scene) {
