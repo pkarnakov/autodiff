@@ -65,6 +65,27 @@ void CopyToCanvas(uint32_t* buffer, int width, int height) {
       buffer, width, height);
 }
 
+void DrawSegmentsOnCanvas(const std::vector<float>& segments) {
+  EM_ASM_(
+      {
+        let canvas = Module['canvas'];
+        let ctx = canvas.getContext("2d");
+        let w = canvas.width;
+        let h = canvas.height;
+        let p = $0 >> 2;
+        ctx.beginPath();
+        for (let i = 0; i < $1; i += 4) {
+          ctx.moveTo(HEAPF32[p + i] * w, (1 - HEAPF32[p + i + 1]) * h);
+          ctx.lineTo(HEAPF32[p + i + 2] * w, (1 - HEAPF32[p + i + 3]) * h);
+        }
+        ctx.strokeStyle = "rgba(40, 40, 40, 0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      },
+      segments.data(), segments.size());
+}
+
 // Draws a smooth circle on a field.
 // mask: target field.
 // x, y: circle center in fractions (0, 1).
