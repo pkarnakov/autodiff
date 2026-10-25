@@ -39,17 +39,22 @@ struct Scene {
   Scal kreg = 0.1;      // Weight of velocity regularization (gradient).
   Scal kregu = 0.001;   // Weight of field regularization.
   Scal kunit = 3;       // Weight of penalty on deviation of |v| from 1.
+  Scal kzero = 1;       // Weight of penalty on |v| where it is not required.
+  Scal grad_ref = 0.1;  // Change of u per cell at which |v| = 1 is required.
   Scal vel_init = 0.1;  // Amplitude of random initial velocity.
   Scal lr = 0.005;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
   // Solver state.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;  // Solution.
-  // Velocity. Penalty on deviation of |v| from 1 excludes the trivial
-  // solution v = 0 but allows |v| = 0 at defects, e.g. the center of a vortex.
+  // Velocity. Required to have |v| = 1 where u changes, with weight w,
+  // and pulled to zero elsewhere, with weight 1 - w.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_vx;  // Velocity in x.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_vy;  // Velocity in y.
   std::unique_ptr<Var<Matr>> var_mask;               // Mask.
+  // Weight w in [0, 1] of the requirement |v| = 1, a function of |grad u|.
+  // Updated from u every frame and not differentiated.
+  std::unique_ptr<Var<Matr>> var_w;
   Tracer<Matr, Extra> mask;
   NodeOrder<Extra> order;
   Tracer<Scal, Extra> loss;
@@ -150,18 +155,22 @@ static void InitScene(Scene& scene) {
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "mask");
   scene.mask = MakeTracer<Extra>(*scene.var_mask);
+  scene.var_w = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "w");
 
   {  // Compute loss.
     auto& u = scene.mg_u->tracer();
     auto& mask = scene.mask;
     auto& vx = scene.mg_vx->tracer();
     auto& vy = scene.mg_vy->tracer();
+    auto w = MakeTracer<Extra>(*scene.var_w);
+    auto v2 = sqr(vx) + sqr(vy);
     scene.loss = mean(sqr(operator_advection(u, vx, vy) * inner)) +
                  mean(sqr((u - mask) * scene.kimp)) +
                  mean(sqr(operator_lapl(u) * (inner * scene.kregu))) +
                  mean(operator_grad2(vx) * (inner * sqr(scene.kreg))) +
                  mean(operator_grad2(vy) * (inner * sqr(scene.kreg))) +
-                 mean(sqr((1 - sqr(vx) - sqr(vy)) * scene.kunit));
+                 mean(sqr(1 - v2) * w * sqr(scene.kunit)) +
+                 mean(v2 * (1 - w) * sqr(scene.kzero));
   }
 
   scene.time_prev = Clock::now();
@@ -206,12 +215,24 @@ static void InitScene(Scene& scene) {
   scene.optimizer = std::make_unique<Adam>();
 }
 
+// Updates the weight of the requirement |v| = 1 from the current solution.
+static void UpdateWeight(Scene& scene) {
+  const Matr& u = scene.mg_u->tracer().value();
+  // Central differences in units of change per cell.
+  const Matr du_x = (u.roll(-1, 0) - u.roll(1, 0)) * 0.5;
+  const Matr du_y = (u.roll(0, -1) - u.roll(0, 1)) * 0.5;
+  const Matr g2 = (sqr(du_x) + sqr(du_y)) / sqr(scene.grad_ref);
+  scene.var_w->value() = 1 - exp(-g2);
+}
+
 static void AdvanceScene(Scene& scene) {
   if (scene.is_pause) {
     return;
   }
   scene.optimizer->Run(scene.opt_config, scene.opt_vars, scene.opt_grads,
                        scene.update_grads, scene.callback);
+  // After Run(), since values of the solution are computed there.
+  UpdateWeight(scene);
   const auto& u = scene.mg_u->tracer().value();
   const Matrix<float> unorm =
       (u - scene.ulim[0]) / (scene.ulim[1] - scene.ulim[0]);
@@ -220,7 +241,7 @@ static void AdvanceScene(Scene& scene) {
 }
 
 // Draws the velocity on the canvas as arrows
-// with length proportional to min(|v|, 1).
+// with length proportional to |v|.
 static void DrawArrows(Scene& scene) {
   const Matr& vx = scene.mg_vx->tracer().value();
   const Matr& vy = scene.mg_vy->tracer().value();
@@ -240,7 +261,7 @@ static void DrawArrows(Scene& scene) {
       if (norm == 0) {
         continue;
       }
-      const Scal len = std::min<Scal>(norm, 1);
+      const Scal len = norm;
       // Half of the arrow in fractions, a bit shorter than the spacing.
       const Scal hlx = 0.4 * len * step / nx * a / norm;
       const Scal hly = 0.4 * len * step / ny * b / norm;
