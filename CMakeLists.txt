@@ -33,6 +33,12 @@ if (USE_MARCH_NATIVE)
   endif()
 endif()
 
+# Before any targets, since add_compile_options() applies only to targets
+# created after it.
+if (USE_WARNINGS)
+  add_compile_options(-Wall -Wextra -pedantic -Wshadow)
+endif()
+
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 include_directories(${SRC})
 
@@ -63,10 +69,6 @@ if (BUILD_TESTS)
   if (USE_OPENCL)
     target_link_libraries(test_opencl opencl profiler)
   endif()
-endif()
-
-if (USE_WARNINGS)
-  add_compile_options(-Wall -Wextra -pedantic -Wshadow)
 endif()
 
 if (USE_OPENCL)
