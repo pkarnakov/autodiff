@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2  # no major tag v10
@@ -15,7 +15,7 @@ jobs:
         run: make check
 
   native:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - name: Configure (without OpenCL, warnings as errors)
@@ -27,7 +27,7 @@ jobs:
         run: ctest --output-on-failure
 
   wasm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: mymindstorm/setup-emsdk@v16
