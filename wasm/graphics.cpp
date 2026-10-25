@@ -79,7 +79,7 @@ void DrawSegmentsOnCanvas(const std::vector<float>& segments) {
           ctx.lineTo(HEAPF32[p + i + 2] * w, (1 - HEAPF32[p + i + 3]) * h);
         }
         ctx.strokeStyle = "rgba(40, 40, 40, 0.6)";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.5 * w / 256;  // Relative to canvas of width 256.
         ctx.lineCap = "round";
         ctx.stroke();
       },
