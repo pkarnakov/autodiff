@@ -13,7 +13,6 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
-#include <random>
 #include <sstream>
 #include <vector>
 
@@ -41,7 +40,7 @@ struct Scene {
   Scal kunit = 3;       // Weight of penalty on deviation of |v| from 1.
   Scal kzero = 1;       // Weight of penalty on |v| where it is not required.
   Scal grad_ref = 0.1;  // Change of u per cell at which |v| = 1 is required.
-  Scal vel_init = 0.1;  // Amplitude of random initial velocity.
+  Scal vel_init = 0.1;  // Initial velocity in x, since v = 0 is stationary.
   Scal lr = 0.005;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
@@ -138,20 +137,9 @@ static void InitScene(Scene& scene) {
       Matr::zeros(Nx), scene.max_nlvl, "u");
   // Create variables for velocity.
   scene.mg_vx = std::make_unique<MultigridVar<Scal, Extra>>(  //
-      Matr::zeros(Nx), scene.max_nlvl, "vx");
+      Matr::zeros(Nx) + scene.vel_init, scene.max_nlvl, "vx");
   scene.mg_vy = std::make_unique<MultigridVar<Scal, Extra>>(  //
       Matr::zeros(Nx), scene.max_nlvl, "vy");
-  {  // Initialize the coarsest level with random values,
-     // since away from the reference solution v = 0 is a stationary point.
-    std::mt19937 gen(0);
-    std::uniform_real_distribution<Scal> dist(-scene.vel_init, scene.vel_init);
-    for (auto* mg : {scene.mg_vx.get(), scene.mg_vy.get()}) {
-      auto& v = mg->vars().back()->value();
-      for (size_t i = 0; i < v.size(); ++i) {
-        v[i] = dist(gen);
-      }
-    }
-  }
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "mask");
   scene.mask = MakeTracer<Extra>(*scene.var_mask);
