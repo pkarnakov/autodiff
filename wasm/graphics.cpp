@@ -56,7 +56,7 @@ void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
 void CopyToCanvas(uint32_t* buffer, int width, int height) {
   EM_ASM_(
       {
-        let data = Module.HEAPU8.slice($0, $0 + $1 * $2 * 4);
+        let data = HEAPU8.slice($0, $0 + $1 * $2 * 4);
         let tctx = g_shared_canvas.getContext("2d");
         let image = tctx.getImageData(0, 0, $1, $2);
         image.data.set(data);

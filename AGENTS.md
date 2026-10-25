@@ -64,3 +64,5 @@ and records the source revision; `make demos_commit` commits it in the
   builds warning-free.
 - Commit subjects: `area: change`, lowercase, short, e.g.
   `wasm: add heat`, `matrix,reverse: add 3x3 conv`.
+- In `EM_ASM` JS, use `HEAPU8` etc. directly, not `Module.HEAPU8`:
+  newer Emscripten does not export heap views on `Module` by default.
