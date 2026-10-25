@@ -36,7 +36,7 @@ struct Scene {
   int epochs_per_frame = 10;
   int max_nlvl = 4;
   Scal kimp = 10;       // Weight of imposed values.
-  Scal kreg = 0.005;    // Weight of velocity regularization.
+  Scal kreg = 0.1;      // Weight of velocity regularization (gradient).
   Scal kregu = 0.001;   // Weight of field regularization.
   Scal kunit = 3;       // Weight of penalty on deviation of |v| from 1.
   Scal vel_init = 0.1;  // Amplitude of random initial velocity.
@@ -113,6 +113,13 @@ static void InitScene(Scene& scene) {
     return q_x + q_y;
   };
 
+  // Evaluates |grad u|^2 with forward differences.
+  auto operator_grad2 = [hx, hy](auto& u) {
+    auto u_x = (roll(u, -1, 0) - u) / hx;
+    auto u_y = (roll(u, 0, -1) - u) / hy;
+    return sqr(u_x) + sqr(u_y);
+  };
+
   // Evaluates Laplacian.
   auto operator_lapl = [hx](auto& u) {  //
     const Scal hxx = sqr(hx);
@@ -152,8 +159,8 @@ static void InitScene(Scene& scene) {
     scene.loss = mean(sqr(operator_advection(u, vx, vy) * inner)) +
                  mean(sqr((u - mask) * scene.kimp)) +
                  mean(sqr(operator_lapl(u) * (inner * scene.kregu))) +
-                 mean(sqr(operator_lapl(vx) * (inner * scene.kreg))) +
-                 mean(sqr(operator_lapl(vy) * (inner * scene.kreg))) +
+                 mean(operator_grad2(vx) * (inner * sqr(scene.kreg))) +
+                 mean(operator_grad2(vy) * (inner * sqr(scene.kreg))) +
                  mean(sqr((1 - sqr(vx) - sqr(vy)) * scene.kunit));
   }
 
