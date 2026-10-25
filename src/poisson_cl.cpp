@@ -33,7 +33,7 @@ struct Config {
 
 using CL = OpenCL;
 
-static CL Init(size_t nx, bool verbose = false) {
+static CL Init(bool verbose = false) {
   CL::Config config;
   config.platform = 0;
   config.verbose = 0;
@@ -62,7 +62,7 @@ static void RunPoisson(Config config) {
 
   const size_t Nx = config.Nx;
   const Scal hx = 1. / Nx;
-  auto cl = Init(Nx, true);
+  auto cl = Init(true);
 
   // Reference solution.
   auto uref = MatrixCL<Scal>::zeros(Nx, Nx, cl);
