@@ -1,6 +1,7 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -12,6 +13,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <sstream>
 #include <vector>
 
@@ -34,16 +36,22 @@ struct Scene {
   int epochs_per_frame = 10;
   int max_nlvl = 4;
   Scal kimp = 10;    // Weight of imposed values.
-  Scal kreg = 0.005;  // Weight of velocity regularization.
-  Scal kregu = 0.001;  // Weight of field regularization.
+  Scal kreg = 0.005;    // Weight of line field regularization.
+  Scal kregu = 0.001;   // Weight of field regularization.
+  Scal kunit = 10;      // Weight of penalty on deviation of |q| from 1.
+  Scal q_init = 0.1;    // Amplitude of random initial line field.
+  Scal q_eps = 1e-6;    // Regularization of |q| at zero.
   Scal lr = 0.005;
   std::array<Scal, 2> ulim = {-0.5, 0.5};
 
   // Solver state.
   std::unique_ptr<MultigridVar<Scal, Extra>> mg_u;   // Solution.
-  // Angle of velocity. Velocity is a unit vector, so there is
-  // no preferred direction and no trivial solution with zero velocity.
-  std::unique_ptr<MultigridVar<Scal, Extra>> mg_theta;
+  // Line field q = |q| * (cos(2*theta), sin(2*theta)) of direction
+  // n = (cos(theta), sin(theta)), invariant to n -> -n, so lines have
+  // no orientation. Penalty on deviation of |q| from 1 excludes the trivial
+  // solution q = 0 but allows |q| = 0 at defects, e.g. the center of a circle.
+  std::unique_ptr<MultigridVar<Scal, Extra>> mg_qa;
+  std::unique_ptr<MultigridVar<Scal, Extra>> mg_qb;
   std::unique_ptr<Var<Matr>> var_mask;               // Mask.
   Tracer<Matr, Extra> mask;
   NodeOrder<Extra> order;
@@ -60,10 +68,13 @@ struct Scene {
 
   // Data buffers.
   std::vector<uint32_t> bitmap;
+  std::vector<float> segments;  // Endpoints of segments showing line field.
 
   // Control and visualization.
   Scal circle_radius = 3;  // Radius of circle drawn on the mask on mouse click.
   bool is_pause = false;
+  bool show_lines = true;  // Show the line field as segments.
+  int lines_step = 8;      // Spacing of segments in cells.
   bool is_mouse_down = false;
   std::vector<char> status_string = {0};  // Null-terminated string.
 };
@@ -86,39 +97,22 @@ static void InitScene(Scene& scene) {
     }
   }
 
-  auto fd_second = [](auto& u, int dx, int dy, Scal h) {
-    auto upp = roll(u, -dx * 2, -dy * 2);
-    auto up = roll(u, -dx, -dy);
-    return (-upp + 4 * up - 3 * u) * (0.5 / h);
-  };
-  auto fd_first = [](auto& u, int dx, int dy, Scal h) {
-    auto up = roll(u, -dx, -dy);
-    return (up - u) / h;
-  };
   auto fd_central = [](auto& u, int dx, int dy, Scal h) {
     auto up = roll(u, -dx, -dy);
     auto um = roll(u, dx, dy);
     return (up - um) * (0.5 / h);
   };
-  (void)fd_first;
 
-  // Evaluates the discrete operator.
-  auto operator_advection = [hx, hy, fd_central, fd_second](auto& u, auto& vx,
-                                                            auto& vy) {
-    if (0) {  // Second order upwind.
-      auto u_xm = fd_second(u, -1, 0, -hx);
-      auto u_xp = fd_second(u, 1, 0, hx);
-      auto u_ym = fd_second(u, 0, -1, -hy);
-      auto u_yp = fd_second(u, 0, 1, hy);
-      auto q_x = maximum(vx, 0) * u_xm + minimum(vx, 0) * u_xp;
-      // auto q_y = maximum(vy, 0) * u_ym + minimum(vy, 0) * u_yp;
-      auto q_y = fd_central(u, 0, 1, hy) * vy;
-      return q_x + q_y;
-    }
-    // Central.
-    auto q_x = fd_central(u, 1, 0, hx) * vx;
-    auto q_y = fd_central(u, 0, 1, hy) * vy;
-    return q_x + q_y;
+  // Evaluates |q| * (n . grad u)^2, the squared residual of advection
+  // along the lines, from components q = (qa, qb) and their norm qn.
+  // Nonnegative since (ux^2 - uy^2, 2 ux uy) has norm |grad u|^2.
+  auto operator_line = [hx, hy, fd_central](auto& u, auto& qa, auto& qb,
+                                            auto& qn) {
+    auto ux = fd_central(u, 1, 0, hx);
+    auto uy = fd_central(u, 0, 1, hy);
+    auto uxx = sqr(ux);
+    auto uyy = sqr(uy);
+    return (qn * (uxx + uyy) + qa * (uxx - uyy) + qb * (ux * uy * 2)) * 0.5;
   };
 
   // Evaluates Laplacian.
@@ -132,9 +126,22 @@ static void InitScene(Scene& scene) {
   // Create variable for solution.
   scene.mg_u = std::make_unique<MultigridVar<Scal, Extra>>(  //
       Matr::zeros(Nx), scene.max_nlvl, "u");
-  // Create variable for angle of velocity.
-  scene.mg_theta = std::make_unique<MultigridVar<Scal, Extra>>(  //
-      Matr::zeros(Nx), scene.max_nlvl, "theta");
+  // Create variables for line field.
+  scene.mg_qa = std::make_unique<MultigridVar<Scal, Extra>>(  //
+      Matr::zeros(Nx), scene.max_nlvl, "qa");
+  scene.mg_qb = std::make_unique<MultigridVar<Scal, Extra>>(  //
+      Matr::zeros(Nx), scene.max_nlvl, "qb");
+  {  // Initialize the coarsest level with random values,
+     // since away from the reference solution q = 0 is a stationary point.
+    std::mt19937 gen(0);
+    std::uniform_real_distribution<Scal> dist(-scene.q_init, scene.q_init);
+    for (auto* mg : {scene.mg_qa.get(), scene.mg_qb.get()}) {
+      auto& v = mg->vars().back()->value();
+      for (size_t i = 0; i < v.size(); ++i) {
+        v[i] = dist(gen);
+      }
+    }
+  }
   // Create variable for mask.
   scene.var_mask = std::make_unique<Var<Matr>>(Matr::zeros(Nx), "mask");
   scene.mask = MakeTracer<Extra>(*scene.var_mask);
@@ -142,15 +149,15 @@ static void InitScene(Scene& scene) {
   {  // Compute loss.
     auto& u = scene.mg_u->tracer();
     auto& mask = scene.mask;
-    auto& theta = scene.mg_theta->tracer();
-    // Regularize components rather than angle to avoid jumps by 2*pi.
-    auto vx = cos(theta);
-    auto vy = sin(theta);
-    scene.loss = mean(sqr(operator_advection(u, vx, vy) * inner)) +
+    auto& qa = scene.mg_qa->tracer();
+    auto& qb = scene.mg_qb->tracer();
+    auto qn = sqrt(sqr(qa) + sqr(qb) + scene.q_eps);
+    scene.loss = mean(operator_line(u, qa, qb, qn) * inner) +
                  mean(sqr((u - mask) * scene.kimp)) +
                  mean(sqr(operator_lapl(u) * (inner * scene.kregu))) +
-                 mean(sqr(operator_lapl(vx) * (inner * scene.kreg))) +
-                 mean(sqr(operator_lapl(vy) * (inner * scene.kreg)));
+                 mean(sqr(operator_lapl(qa) * (inner * scene.kreg))) +
+                 mean(sqr(operator_lapl(qb) * (inner * scene.kreg))) +
+                 mean(sqr((1 - qn) * scene.kunit));
   }
 
   scene.time_prev = Clock::now();
@@ -162,14 +169,17 @@ static void InitScene(Scene& scene) {
       auto msdur = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
       auto ms = msdur.count();
       const Matr& u = scene.mg_u->tracer().value();
+      const Matr& qa = scene.mg_qa->tracer().value();
+      const Matr& qb = scene.mg_qb->tracer().value();
+      const Scal qmag = sqrt(sqr(qa) + sqr(qb)).mean();
       const Scal throughput =
           (ms > 0 ? 1e-3 * u.size() * scene.epochs_per_frame / ms : 0);
       auto print = [&](char* buf, size_t bufsize) -> int {
         return std::snprintf(  //
             buf, bufsize,
-            "epoch=%5d, loss=%.4e,<br>"
+            "epoch=%5d, loss=%.4e, |q|=%.3f,<br>"
             "throughput=%.3fM cells/s",
-            epoch, std::sqrt(scene.loss.value()), throughput);
+            epoch, std::sqrt(scene.loss.value()), qmag, throughput);
       };
       auto& s = scene.status_string;
       s.resize(print(nullptr, 0) + 1);
@@ -185,8 +195,10 @@ static void InitScene(Scene& scene) {
   scene.opt_config.lr = scene.lr;
   scene.mg_u->AppendValues(scene.opt_vars);
   scene.mg_u->AppendGrads(scene.opt_grads);
-  scene.mg_theta->AppendValues(scene.opt_vars);
-  scene.mg_theta->AppendGrads(scene.opt_grads);
+  scene.mg_qa->AppendValues(scene.opt_vars);
+  scene.mg_qa->AppendGrads(scene.opt_grads);
+  scene.mg_qb->AppendValues(scene.opt_vars);
+  scene.mg_qb->AppendGrads(scene.opt_grads);
   scene.optimizer = std::make_unique<Adam>();
 }
 
@@ -203,6 +215,33 @@ static void AdvanceScene(Scene& scene) {
   CopyToCanvas(scene.bitmap.data(), u.ncol(), u.nrow());
 }
 
+// Draws the line field on the canvas as segments of direction
+// n = (cos(theta), sin(theta)) with length proportional to min(|q|, 1).
+static void DrawLines(Scene& scene) {
+  const Matr& qa = scene.mg_qa->tracer().value();
+  const Matr& qb = scene.mg_qb->tracer().value();
+  const size_t nx = qa.nrow();
+  const size_t ny = qa.ncol();
+  const size_t step = scene.lines_step;
+  auto& seg = scene.segments;
+  seg.clear();
+  for (size_t ix = step / 2; ix < nx; ix += step) {
+    for (size_t iy = step / 2; iy < ny; iy += step) {
+      const Scal a = qa(ix, iy);
+      const Scal b = qb(ix, iy);
+      const Scal theta = 0.5 * std::atan2(b, a);
+      const Scal len = std::min<Scal>(std::sqrt(a * a + b * b), 1);
+      // Half-length in fractions, a bit shorter than the spacing.
+      const Scal hlx = 0.4 * len * step / nx * std::cos(theta);
+      const Scal hly = 0.4 * len * step / ny * std::sin(theta);
+      const Scal x = (ix + 0.5) / nx;
+      const Scal y = (iy + 0.5) / ny;
+      seg.insert(seg.end(), {x - hlx, y - hly, x + hlx, y + hly});
+    }
+  }
+  DrawSegmentsOnCanvas(seg);
+}
+
 extern "C" {
 int GetBitmapWidth() {
   return g_scene->Nx;
@@ -213,7 +252,9 @@ int GetBitmapHeight() {
 }
 
 void SendKeyDown(char keysym) {
-  (void)keysym;
+  if (keysym == 'l') {
+    g_scene->show_lines = !g_scene->show_lines;
+  }
 }
 
 void SendMouseMotion(Scal x, Scal y) {
@@ -254,6 +295,9 @@ char* GetStatusString() {
 static void main_loop() {
   AdvanceScene(*g_scene);
   EM_ASM({ draw(); });
+  if (g_scene->show_lines) {
+    DrawLines(*g_scene);
+  }
 }
 
 int main() {
