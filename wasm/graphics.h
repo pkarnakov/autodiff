@@ -18,10 +18,12 @@ inline T Clip(T u, T min, T max) {
 void DrawFieldsOnBitmap(const Matrix<float>& u, const Matrix<float>& mask,
                         std::vector<uint32_t>& bitmap);
 void CopyToCanvas(uint32_t* buffer, int width, int height);
-// Draws line segments on the visible canvas `Module.canvas` over its content.
+// Draws line segments on the transparent canvas `canvas_overlay` placed over
+// the visible canvas, replacing its content. The overlay has the resolution
+// of the screen, independent of the visible canvas. Does nothing without it.
 // segments: endpoints x0, y0, x1, y1 of each segment in fractions (0, 1),
 // with y pointing up.
-void DrawSegmentsOnCanvas(const std::vector<float>& segments);
+void DrawSegmentsOnOverlay(const std::vector<float>& segments);
 
 template <class Scal>
 void DrawCircleOnMask(Matrix<Scal>& mask, float x, float y, float r);

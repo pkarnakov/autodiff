@@ -65,13 +65,22 @@ void CopyToCanvas(uint32_t* buffer, int width, int height) {
       buffer, width, height);
 }
 
-void DrawSegmentsOnCanvas(const std::vector<float>& segments) {
+void DrawSegmentsOnOverlay(const std::vector<float>& segments) {
   EM_ASM_(
       {
-        let canvas = Module['canvas'];
+        let canvas = document.getElementById("canvas_overlay");
+        if (!canvas) {
+          return;
+        }
+        let dpr = window.devicePixelRatio || 1;
+        let w = Math.round(canvas.clientWidth * dpr);
+        let h = Math.round(canvas.clientHeight * dpr);
+        if (canvas.width != w || canvas.height != h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
         let ctx = canvas.getContext("2d");
-        let w = canvas.width;
-        let h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
         let p = $0 >> 2;
         ctx.beginPath();
         for (let i = 0; i < $1; i += 4) {
