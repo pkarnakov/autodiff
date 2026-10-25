@@ -302,9 +302,6 @@ class MatrixCL {
   friend T dot(const MatrixCL& matr, const MatrixCL& other) {
     return matr.dot(other);
   }
-  friend MatrixCL transpose(const MatrixCL& matr) {
-    return matr.transpose();
-  }
   friend MatrixCL operator+(T a, const MatrixCL& matr) {
     MatrixCL res(matr.nw_, matr.cl);
     matr.cl->Add(matr.nw_, matr.data_, a, res.data_);
