@@ -279,7 +279,7 @@ static void DrawArrows(Scene& scene) {
                  {tx, ty, tx + cs * bx + sn * by, ty - sn * bx + cs * by});
     }
   }
-  DrawSegmentsOnCanvas(seg);
+  DrawSegmentsOnOverlay(seg);
 }
 
 extern "C" {
@@ -337,6 +337,8 @@ static void main_loop() {
   EM_ASM({ draw(); });
   if (g_scene->show_arrows) {
     DrawArrows(*g_scene);
+  } else {
+    DrawSegmentsOnOverlay({});
   }
 }
 
